@@ -65,9 +65,10 @@ protected:
   VarBool * _v_complete_sobel;
   VarBool * _v_detected_edges;
   VarBool * _v_mask_hull;
+  VarBool * _v_chessboard;
 
   const CameraParameters& camera_parameters;
-  const RoboCupField& real_field;
+  const RoboCupField& real_field;  
   const ConvexHullImageMask& _image_mask;
 
   LUT3D * _threshold_lut;
@@ -108,6 +109,8 @@ protected:
   void DrawSearchCorridors(FrameData* data, VisualizationFrame* vis_frame);
 
   void DrawMaskHull(FrameData* data, VisualizationFrame* vis_frame);
+
+  void DrawChessboard(FrameData* data, VisualizationFrame* vis_frame);
 public:
   PluginVisualize(FrameBuffer* _buffer, const CameraParameters& camera_params,
                   const RoboCupField& real_field, const ConvexHullImageMask &mask);
