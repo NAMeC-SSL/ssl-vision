@@ -204,6 +204,7 @@ set (SRCS ${SRCS}
 
     src/app/gui/maskwidget.cpp
 	src/app/gui/automatedcolorcalibwidget.cpp
+	src/app/gui/camera_intrinsic_calib_widget.cpp
 	src/app/gui/cameracalibwidget.cpp
 	src/app/gui/colorpicker.cpp
 	src/app/gui/glLUTwidget.cpp
@@ -246,6 +247,7 @@ qt4_wrap_cpp (MOC_SRCS
 
 	src/app/gui/maskwidget.h
 	src/app/gui/automatedcolorcalibwidget.h
+	src/app/gui/camera_intrinsic_calib_widget.h
 	src/app/gui/cameracalibwidget.h
 	src/app/gui/glLUTwidget.h
 	src/app/gui/glwidget.h
