@@ -19,6 +19,7 @@
 */
 //========================================================================
 #include "stack_robocup_ssl.h"
+#include <plugin_camera_intrinsic_calib.h>
 
 StackRoboCupSSL::StackRoboCupSSL(
     RenderOptions * _opts,
@@ -53,6 +54,7 @@ StackRoboCupSSL::StackRoboCupSSL(
   camera_parameters = new CameraParameters(_camera_id, global_field);
   _image_mask = new ConvexHullImageMask(cam_settings_filename + "-mask.xml");
   settings->addChild(_image_mask->getSettings());
+  camera_intrinsic_parameters.reset(new CameraIntrinsicParameters(_camera_id));
 
   _global_plugin_publish_geometry->addCameraParameters(camera_parameters);
   _legacy_plugin_publish_geometry->addCameraParameters(camera_parameters);
@@ -71,6 +73,10 @@ StackRoboCupSSL::StackRoboCupSSL(
   stack.push_back(new PluginColorThreshold(_fb,lut_yuv, *_image_mask));
 
   stack.push_back(new PluginGreyscale(_fb));
+
+  // requires greyscale image
+  stack.push_back(
+      new PluginCameraIntrinsicCalibration(_fb, *camera_intrinsic_parameters));  
 
   stack.push_back(new PluginRunlengthEncode(_fb));
 

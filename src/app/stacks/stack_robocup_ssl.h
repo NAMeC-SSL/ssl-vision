@@ -24,6 +24,7 @@
 #include "visionstack.h"
 #include "lut3d.h"
 #include "camera_calibration.h"
+#include "camera_intrinsic_parameters.h"
 #include "field.h"
 #include "plugin_dvr.h"
 #include "plugin_colorcalib.h"
@@ -60,6 +61,7 @@ class StackRoboCupSSL : public VisionStack {
   YUVLUT * lut_yuv;
   string _cam_settings_filename;
   CameraParameters* camera_parameters;
+  std::unique_ptr<CameraIntrinsicParameters> camera_intrinsic_parameters;
   RoboCupField * global_field;
   ConvexHullImageMask *_image_mask;
   PluginDetectBallsSettings * global_ball_settings;
