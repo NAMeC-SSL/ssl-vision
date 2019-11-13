@@ -1,7 +1,9 @@
 #include "plugin_camera_intrinsic_calib.h"
 #include <iostream>
 
-#include <dbg.h>
+//#include <dbg.h>
+#define dbg(M)
+
 
 PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
     FrameBuffer *buffer, CameraIntrinsicParameters &camera_params)
@@ -66,13 +68,13 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
       dbg("findChessboardCorners");
       *found_pattern = cv::findChessboardCorners(
           greyscale_mat, *pattern_size, *corners,
-          CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK |
-              CV_CALIB_CB_NORMALIZE_IMAGE);
+          cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_FAST_CHECK |
+              cv::CALIB_CB_NORMALIZE_IMAGE);
 
-      if (found_pattern && widget->cornerSubPixCorrectionEnabled()) {
+      if (*found_pattern && widget->cornerSubPixCorrectionEnabled()) {
         cv::cornerSubPix(
             greyscale_mat, *corners, cv::Size(11, 11), cv::Size(-1, -1),
-            cv::TermCriteria(CV_TERMCRIT_EPS | CV_TERMCRIT_ITER, 30, 0.1));
+            cv::TermCriteria(cv::TermCriteria::EPS | cv::TermCriteria::MAX_ITER, 30, 0.1));
       }
       break;
     case Pattern::CIRCLES:

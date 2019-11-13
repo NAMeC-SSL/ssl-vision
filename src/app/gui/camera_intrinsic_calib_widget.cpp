@@ -3,7 +3,9 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
-#include <dbg.h>
+
+//#include <dbg.h>
+#define dbg(M)
 
 const int MIN_NUMBER_OF_DATA_POINTS = 30;
 
@@ -260,7 +262,7 @@ void CameraIntrinsicCalibrationWidget::calibrationStarted() {
   clear_data_button->setEnabled(false);
   start_capture_button->setEnabled(false);
   calibrate_button->setEnabled(false);
-  stop_capture_button->setEnabled(false);  
+  stop_capture_button->setEnabled(false);
 }
 
 void CameraIntrinsicCalibrationWidget::calibrationFinished() {
@@ -278,5 +280,5 @@ void CameraIntrinsicCalibrationWidget::calibrationFinished() {
   }
 
   // enable the stop button
-  stop_capture_button->setEnabled(false);  
+  stop_capture_button->setEnabled(false);
 }
