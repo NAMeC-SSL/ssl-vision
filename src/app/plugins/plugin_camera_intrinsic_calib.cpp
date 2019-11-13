@@ -138,8 +138,12 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     intrinsic.ptr<float>(0)[0] = 1;
     intrinsic.ptr<float>(1)[1] = 1;
 
-    cv::calibrateCamera(object_points, image_points, greyscale_mat.size(),
-                        intrinsic, dist_coeffs, rvecs, tvecs);
+    try {
+        cv::calibrateCamera(object_points, image_points, greyscale_mat.size(),
+                            intrinsic, dist_coeffs, rvecs, tvecs);
+    } catch (cv::Exception& e) {
+        std::cout << "calibration failed: " << e.err << std::endl;
+    }
 
     dbg(intrinsic);
     dbg(dist_coeffs);
