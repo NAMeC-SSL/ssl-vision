@@ -2,7 +2,7 @@
 #include <iostream>
 
 //#include <dbg.h>
-#define dbg(M)
+#define dbg(M) std::cout << M << std::endl;
 
 
 PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
@@ -33,6 +33,10 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   cv::Mat greyscale_mat(img_greyscale->getHeight(), img_greyscale->getWidth(),
                         CV_8UC1, img_greyscale->getData());
 
+  double scale_factor = 0.1;
+  cv::Mat greyscale_mat_low_res;
+  cv::resize(greyscale_mat, greyscale_mat_low_res, cv::Size(), scale_factor, scale_factor);
+
   std::vector<cv::Point2f> *corners;
   if ((corners = reinterpret_cast<std::vector<cv::Point2f> *>(
            data->map.get("chessboard_corners"))) == nullptr) {
@@ -59,17 +63,21 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
 
   if (widget->patternDetectionEnabled() || widget->isCapturing()) {
 
-    dbg(widget->camera_params.camera_index);
-    dbg("Detecting pattern");
+//    dbg(widget->camera_params.camera_index);
+//    dbg("Detecting pattern");
 
-    dbg(*pattern_size);
+//    dbg(*pattern_size);
+    std::vector<cv::Point2f> corners_low_res;
     switch (widget->getPattern()) {
     case Pattern::CHECKERBOARD:
-      dbg("findChessboardCorners");
+//      dbg("findChessboardCorners");
       *found_pattern = cv::findChessboardCorners(
-          greyscale_mat, *pattern_size, *corners,
-          cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_FAST_CHECK |
-              cv::CALIB_CB_NORMALIZE_IMAGE);
+              greyscale_mat_low_res, *pattern_size, corners_low_res,
+          cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_FAST_CHECK + cv::CALIB_CB_NORMALIZE_IMAGE);
+
+      for(auto &corner : corners_low_res) {
+          corners->push_back(cv::Point(corner.x / scale_factor, corner.y / scale_factor));
+      }
 
       if (*found_pattern && widget->cornerSubPixCorrectionEnabled()) {
         cv::cornerSubPix(
@@ -87,13 +95,13 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
       break;
     }
 
-    dbg(*found_pattern);
-    dbg(corners->size());
+//    dbg(*found_pattern);
+//    dbg(corners->size());
   }
 
   // TODO: Capture at a slower frame rate
   if (widget->isCapturing()) {
-    dbg("Capturing pattern calib data!");
+//    dbg("Capturing pattern calib data!");
 
     if (!*found_pattern) {
       return ProcessingOk;
