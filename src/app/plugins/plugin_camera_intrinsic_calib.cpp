@@ -117,7 +117,7 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     int num_squares = pattern_size->width * pattern_size->height;
     std::vector<cv::Point3f> obj;
     for (int i = 0; i < num_squares; i++) {
-      obj.push_back(cv::Point3f(i / num_squares, i % num_squares, 0.0f));
+      obj.emplace_back((double) i / num_squares, i % num_squares, 0.0f);
     }
     object_points.push_back(obj);
 
