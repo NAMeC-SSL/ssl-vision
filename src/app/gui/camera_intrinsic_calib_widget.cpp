@@ -67,8 +67,9 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
 
   // calibration instructions
   {
+    auto *calibration_instructions_layout = new QVBoxLayout;
 
-    calibration_steps_layout->addWidget(
+    calibration_instructions_layout->addWidget(
         new QLabel(tr("Enable pattern detection here and enable display in the "
                       "VisualizationPlugin.\n"
                       "Verify that your pattern is detected properly.\nIf not "
@@ -85,7 +86,7 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       hbox->addWidget(label);
       hbox->addWidget(detect_pattern_checkbox);
 
-      calibration_steps_layout->addLayout(hbox);
+      calibration_instructions_layout->addLayout(hbox);
     }
 
     // do corner subpixel correction checkbox
@@ -99,26 +100,57 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       hbox->addWidget(label);
       hbox->addWidget(corner_subpixel_correction_checkbox);
 
-      calibration_steps_layout->addLayout(hbox);
+      calibration_instructions_layout->addLayout(hbox);
+
+      calibration_instructions_layout->addWidget(
+          new QLabel(tr("When you can see a chessboard in the image, you can "
+                        "start capturing data.\n"
+                        "After each new sample, "
+                        "a calibration will be done and the "
+                        "calibration error will be shown as RMS.\n"
+                        "Make sure to capture enough images from different "
+                        "poses (like ~30).")));
+
+      capture_button = new QPushButton(tr("Capture"));
+      capture_button->setCheckable(true);
+      connect(capture_button, SIGNAL(clicked()), this,
+              SLOT(updateConfigurationEnabled()));
+      calibration_instructions_layout->addWidget(capture_button);
+
+      calibration_instructions_layout->addWidget(
+          new QLabel(tr("Images where a chessboard was detected "
+                        "are saved in 'test-data/intrinsic_calibration'.\n"
+                        "You can load all images again to redo or tune "
+                        "the calibration.")));
+
+      load_images_button = new QPushButton(tr("Load saved images"));
+      connect(load_images_button, SIGNAL(clicked()), this,
+              SLOT(loadImagesClicked()));
+      calibration_instructions_layout->addWidget(load_images_button);
     }
+
+    // images loaded
+    {
+      auto *hbox = new QHBoxLayout;
+      hbox->addWidget(new QLabel(tr("Images loaded: ")));
+
+      images_loaded_label = new QLabel(tr("0 / 0"));
+      hbox->addWidget(images_loaded_label);
+
+      calibration_instructions_layout->addLayout(hbox);
+    }
+
+    auto *calibration_instructions_groupbox =
+        new QGroupBox(tr("Calibration Instructions"));
+    calibration_instructions_groupbox->setLayout(
+        calibration_instructions_layout);
+
+    calibration_steps_layout->addWidget(calibration_instructions_groupbox);
   }
 
   // capture control buttons
   {
     auto *capture_control_layout = new QVBoxLayout;
-
-    // frame skip
-    {
-      auto *hbox = new QHBoxLayout;
-      hbox->addWidget(new QLabel(tr("Number of capture skip frames: ")));
-
-      capture_frame_skip = new QSpinBox();
-      capture_frame_skip->setMinimum(0);
-      capture_frame_skip->setValue(30);
-
-      hbox->addWidget(capture_frame_skip);
-      capture_control_layout->addLayout(hbox);
-    }
 
     // captured data info
     {
@@ -127,11 +159,6 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
 
       num_data_points_label = new QLabel(tr("0"));
       hbox->addWidget(num_data_points_label);
-
-      clear_data_button = new QPushButton(tr("Clear Data"));
-      connect(clear_data_button, SIGNAL(clicked()), this,
-              SLOT(clearDataClicked()));
-      hbox->addWidget(clear_data_button);
 
       capture_control_layout->addLayout(hbox);
     }
@@ -147,53 +174,28 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       capture_control_layout->addLayout(hbox);
     }
 
-    capture_control_layout->addSpacing(100);
+    capture_control_layout->addWidget(new QLabel(
+        tr("The calibration result can be found under \n"
+           "Camera Calibrator -> Camera Parameters -> Intrinsic Parameters")));
+
+    capture_control_layout->addSpacing(50);
 
     // control buttons
     {
-      start_capture_button = new QPushButton(tr("Start Capture"));
-      connect(start_capture_button, SIGNAL(clicked()), this,
-              SLOT(startCaptureClicked()));
-
-      stop_capture_button = new QPushButton(tr("Stop Capture"));
-      stop_capture_button->setEnabled(false);
-      connect(stop_capture_button, SIGNAL(clicked()), this,
-              SLOT(stopCaptureClicked()));
-
-      load_images_button = new QPushButton(tr("Load saved images"));
-      connect(load_images_button, SIGNAL(clicked()), this,
-              SLOT(loadImagesClicked()));
+      clear_data_button = new QPushButton(tr("Clear Data"));
+      connect(clear_data_button, SIGNAL(clicked()), this,
+              SLOT(clearDataClicked()));
 
       auto *hbox = new QHBoxLayout;
-      hbox->addWidget(start_capture_button);
-      hbox->addWidget(stop_capture_button);
-      hbox->addWidget(load_images_button);
+      hbox->addWidget(clear_data_button);
 
       capture_control_layout->addLayout(hbox);
     }
 
-    auto *capture_control_groupbox =
-        new QGroupBox(tr("Capture Calibration Data"));
+    auto *capture_control_groupbox = new QGroupBox(tr("Calibration Data"));
     capture_control_groupbox->setLayout(capture_control_layout);
 
     calibration_steps_layout->addWidget(capture_control_groupbox);
-  }
-
-  // calibrate buttons
-  {
-    auto *calibrate_layout = new QVBoxLayout;
-
-    calibrate_button = new QPushButton(tr("Calibrate Intrinsics"));
-    calibrate_button->setEnabled(false);
-    connect(calibrate_button, SIGNAL(clicked()), this,
-            SLOT(calibrateClicked()));
-
-    calibrate_layout->addWidget(calibrate_button);
-
-    auto *groupbox = new QGroupBox(tr("Calibrate"));
-    groupbox->setLayout(calibrate_layout);
-
-    calibration_steps_layout->addWidget(groupbox);
   }
 
   // push widgets to top
@@ -203,92 +205,30 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
 }
 
 void CameraIntrinsicCalibrationWidget::setNumDataPoints(int n) {
-  this->num_data_points = n;
-  num_data_points_label->setText(QString("%1").arg(num_data_points));
-
-  calibrate_button->setEnabled(!is_capturing);
+  num_data_points_label->setText(QString("%1").arg(n));
 }
 
 void CameraIntrinsicCalibrationWidget::clearDataClicked() {
   should_clear_data = true;
-  should_calibrate = false;
 }
 
-void CameraIntrinsicCalibrationWidget::startCaptureClicked() {
-  is_capturing = true;
-
-  // disable widgets while capturing
-  pattern_selector->setEnabled(false);
-  grid_width->setEnabled(false);
-  grid_height->setEnabled(false);
-  clear_data_button->setEnabled(false);
-  start_capture_button->setEnabled(false);
-  calibrate_button->setEnabled(false);
-  detect_pattern_checkbox->setEnabled(false);
-  corner_subpixel_correction_checkbox->setEnabled(false);
-
-  // enable the stop button
-  stop_capture_button->setEnabled(true);
-}
-
-void CameraIntrinsicCalibrationWidget::stopCaptureClicked() {
-  is_capturing = false;
-
-  // enable widgets after capturing
-  pattern_selector->setEnabled(true);
-  grid_width->setEnabled(true);
-  grid_height->setEnabled(true);
-  clear_data_button->setEnabled(true);
-  start_capture_button->setEnabled(true);
-  detect_pattern_checkbox->setEnabled(true);
-  corner_subpixel_correction_checkbox->setEnabled(true);
-
-  calibrate_button->setEnabled(true);
-
-  // enable the stop button
-  stop_capture_button->setEnabled(false);
+void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {
+  pattern_selector->setEnabled(isConfigurationEnabled());
+  grid_width->setEnabled(isConfigurationEnabled());
+  grid_height->setEnabled(isConfigurationEnabled());
+  clear_data_button->setEnabled(isConfigurationEnabled());
+  detect_pattern_checkbox->setEnabled(isConfigurationEnabled());
+  corner_subpixel_correction_checkbox->setEnabled(isConfigurationEnabled());
+  load_images_button->setEnabled(isConfigurationEnabled());
 }
 
 void CameraIntrinsicCalibrationWidget::loadImagesClicked() {
   should_load_images = true;
-}
-
-void CameraIntrinsicCalibrationWidget::calibrateClicked() {
-  should_calibrate = true;
-  calibrate_button->setEnabled(false);
-}
-
-void CameraIntrinsicCalibrationWidget::calibrationStarted() {
-  should_calibrate = false;
-
-  // disable widgets while calibrating
-  pattern_selector->setEnabled(false);
-  grid_width->setEnabled(false);
-  grid_height->setEnabled(false);
-  clear_data_button->setEnabled(false);
-  start_capture_button->setEnabled(false);
-  calibrate_button->setEnabled(false);
-  stop_capture_button->setEnabled(false);
-  load_images_button->setEnabled(false);
+  updateConfigurationEnabled();
 }
 
 void CameraIntrinsicCalibrationWidget::setRms(double rms) {
   rms_label->setText(QString("%1").arg(rms));
-}
-
-void CameraIntrinsicCalibrationWidget::calibrationFinished() {
-  should_calibrate = false;
-
-  pattern_selector->setEnabled(true);
-  grid_width->setEnabled(true);
-  grid_height->setEnabled(true);
-  clear_data_button->setEnabled(true);
-  start_capture_button->setEnabled(true);
-  calibrate_button->setEnabled(true);
-  load_images_button->setEnabled(true);
-
-  // enable the stop button
-  stop_capture_button->setEnabled(false);
 }
 
 void CameraIntrinsicCalibrationWidget::grid_height_changed(int height) {
@@ -297,4 +237,12 @@ void CameraIntrinsicCalibrationWidget::grid_height_changed(int height) {
 
 void CameraIntrinsicCalibrationWidget::grid_width_changed(int width) {
   camera_params.additional_calibration_information->grid_width->setInt(width);
+}
+
+void CameraIntrinsicCalibrationWidget::imagesLoaded(int n, int total) {
+  images_loaded_label->setText(QString("%1 / %2").arg(n).arg(total));
+  if (n == total) {
+    should_load_images = false;
+    updateConfigurationEnabled();
+  }
 }

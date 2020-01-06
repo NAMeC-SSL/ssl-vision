@@ -8,9 +8,13 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
       settings(new VarList("Camera Intrinsic Calibration")),
       widget(new CameraIntrinsicCalibrationWidget(_camera_params)),
       camera_params(_camera_params) {
-  scale_down_factor = new VarDouble("scale down factor", 0.1);
   image_dir = "test-data/intrinsic_calibration";
+
+  scale_down_factor = new VarDouble("scale down factor", 0.1);
   settings->addChild(scale_down_factor);
+
+  chessboard_capture_dt = new VarDouble("chessboard capture dT", 5.0);
+  settings->addChild(chessboard_capture_dt);
 }
 
 QWidget *PluginCameraIntrinsicCalibration::getControlWidget() {
@@ -38,27 +42,25 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   }
 
   if (widget->should_load_images) {
-    widget->should_load_images = false;
-    this->widget->calibrationStarted();
 
     camera_params.intrinsic_parameters->reset();
     std::vector<cv::Mat> images;
     loadImages(images);
 
+    int n = 0;
     for (cv::Mat &mat : images) {
       Chessboard image_chessboard;
       double scale_factor = 1.0;
       detectChessboard(mat, scale_factor, &image_chessboard);
       if (image_chessboard.pattern_was_found) {
         addChessboard(&image_chessboard);
-        double rms = calibrate(mat.size());
-        this->widget->setRms(rms);
+        calibrate(mat.size());
       } else {
         std::cout << "No chessboard detected" << std::endl;
       }
+      n++;
+      widget->imagesLoaded(n, images.size());
     }
-
-    this->widget->calibrationFinished();
   }
 
   // cv expects row major order and image stores col major.
@@ -75,13 +77,15 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
       return ProcessingOk;
     }
 
-    if (widget->captureFrameSkip() > 0 &&
-        data->number % widget->captureFrameSkip() != 0) {
+    double captureDiff = data->video.getTime() - lastChessboardCaptureFrame;
+    if (captureDiff < chessboard_capture_dt->getDouble()) {
       return ProcessingOk;
     }
 
     saveImage(data);
     addChessboard(chessboard);
+    calibrate(greyscale_mat.size());
+    lastChessboardCaptureFrame = data->video.getTime();
   }
 
   if (widget->should_clear_data) {
@@ -93,17 +97,10 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     widget->setNumDataPoints(object_points.size());
   }
 
-  if (widget->should_calibrate) {
-    this->widget->calibrationStarted();
-    double rms = calibrate(greyscale_mat.size());
-    this->widget->setRms(rms);
-    this->widget->calibrationFinished();
-  }
-
   return ProcessingOk;
 }
 
-double
+void
 PluginCameraIntrinsicCalibration::calibrate(const cv::Size &imageSize) const {
 
   std::vector<cv::Mat> rvecs;
@@ -119,7 +116,7 @@ PluginCameraIntrinsicCalibration::calibrate(const cv::Size &imageSize) const {
   } catch (cv::Exception &e) {
     std::cerr << "calibration failed: " << e.err << std::endl;
   }
-  return rms;
+  this->widget->setRms(rms);
 }
 
 void PluginCameraIntrinsicCalibration::addChessboard(

@@ -28,16 +28,10 @@ protected:
   QCheckBox *corner_subpixel_correction_checkbox;
   QLabel *num_data_points_label;
   QLabel *rms_label;
+  QLabel *images_loaded_label;
   QPushButton *clear_data_button;
-  QSpinBox *capture_frame_skip;
-  QPushButton *start_capture_button;
-  QPushButton *stop_capture_button;
+  QPushButton *capture_button;
   QPushButton *load_images_button;
-  QPushButton *calibrate_button;
-
-private:
-  bool is_capturing = false;
-  int num_data_points = 0;
 
 public:
   bool patternDetectionEnabled() const {
@@ -46,30 +40,29 @@ public:
   bool cornerSubPixCorrectionEnabled() const {
     return corner_subpixel_correction_checkbox->checkState() != Qt::Unchecked;
   }
-  bool isCapturing() const { return is_capturing; }
-  int captureFrameSkip() const { return capture_frame_skip->value(); }
+  bool isCapturing() const { return capture_button->isChecked(); }
+  bool isLoadingFiles() const { return should_load_images; }
+  bool isConfigurationEnabled() const {
+    return !isCapturing() && !isLoadingFiles();
+  }
   void setNumDataPoints(int n);
   Pattern getPattern() const {
     return static_cast<Pattern>(pattern_selector->currentIndex());
   }
+  void imagesLoaded(int n, int total);
 
 public slots:
   void clearDataClicked();
-  void startCaptureClicked();
-  void stopCaptureClicked();
+  void updateConfigurationEnabled();
   void loadImagesClicked();
-  void calibrateClicked();
   void grid_height_changed(int);
   void grid_width_changed(int);
 
 public:
-  void calibrationStarted();
-  void calibrationFinished();
   void setRms(double rms);
 
 public:
   bool should_clear_data = false;
-  bool should_calibrate = false;
   bool should_load_images = false;
 };
 

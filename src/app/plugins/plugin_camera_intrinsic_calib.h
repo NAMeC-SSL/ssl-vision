@@ -40,6 +40,8 @@ private:
   std::vector<std::vector<cv::Point2f>> image_points;
 
   VarDouble *scale_down_factor;
+  VarDouble *chessboard_capture_dt;
+  double lastChessboardCaptureFrame = 0.0;
 
   void saveImage(const FrameData *data);
   void loadImages(std::vector<cv::Mat> &images);
@@ -48,5 +50,5 @@ private:
   void detectChessboard(const cv::Mat &greyscale_mat, double scale_factor,
                         Chessboard *chessboard);
   void addChessboard(const Chessboard *chessboard);
-  double calibrate(const cv::Size &imageSize) const;
+  void calibrate(const cv::Size &imageSize) const;
 };
