@@ -19,6 +19,7 @@
 */
 //========================================================================
 #include "plugin_visualize.h"
+#include "plugin_camera_intrinsic_calib.h"
 #include <opencv2/opencv.hpp>
 #include "convex_hull.h"
 #include <mutex>
@@ -521,34 +522,16 @@ void PluginVisualize::drawFieldLine(const GVector::vector3d<double> &start,
 
 void PluginVisualize::DrawChessboard(FrameData *data,
                                      VisualizationFrame *vis_frame) {
-  bool *found_pattern;
-  if ((found_pattern = reinterpret_cast<bool *>(
-           data->map.get("chessboard_found"))) == nullptr) {
+  Chessboard *chessboard;
+  if ((chessboard = reinterpret_cast<Chessboard*>(
+      data->map.get("chessboard"))) == nullptr) {
     std::cerr << "chessboard_found key missing from data map.\n";
-    return;
-  }
-
-  if (!*found_pattern) {
-    return;
-  }
-
-  std::vector<cv::Point2f> *corners;
-  if ((corners = reinterpret_cast<std::vector<cv::Point2f> *>(
-           data->map.get("chessboard_corners"))) == nullptr) {
-    std::cerr << "chessboard_corners key missing from data map.\n";
-    return;
-  }
-  cv::Size *pattern_size;
-  if ((pattern_size = reinterpret_cast<cv::Size *>(
-           data->map.get("chessboard_size"))) == nullptr) {
-    std::cerr << "chessboard_size key missing from data map.\n";
-    return;
   }
 
   cv::Mat chessboard_img(vis_frame->data.getHeight(),
                          vis_frame->data.getWidth(), CV_8UC3,
                          vis_frame->data.getData());
 
-  cv::drawChessboardCorners(chessboard_img, *pattern_size, *corners,
-                            *found_pattern);
+  cv::drawChessboardCorners(chessboard_img, chessboard->pattern_size, chessboard->corners,
+                            chessboard->pattern_was_found);
 }

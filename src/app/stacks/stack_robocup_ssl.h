@@ -61,7 +61,6 @@ class StackRoboCupSSL : public VisionStack {
   YUVLUT * lut_yuv;
   string _cam_settings_filename;
   CameraParameters* camera_parameters;
-  std::unique_ptr<CameraIntrinsicParameters> camera_intrinsic_parameters;
   RoboCupField * global_field;
   ConvexHullImageMask *_image_mask;
   PluginDetectBallsSettings * global_ball_settings;
@@ -87,7 +86,7 @@ class StackRoboCupSSL : public VisionStack {
                   RoboCupSSLServer* ds_udp_server_old,
                   string cam_settings_filename);
   virtual string getSettingsFileName();
-  virtual ~StackRoboCupSSL();
+  ~StackRoboCupSSL() override;
 };
 
 

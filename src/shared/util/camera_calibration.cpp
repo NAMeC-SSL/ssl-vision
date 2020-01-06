@@ -1,6 +1,5 @@
 #include "camera_calibration.h"
 #include <Eigen/Cholesky>
-#include <Eigen/Dense>
 #include <iostream>
 #include <algorithm>
 #include <limits>
@@ -33,6 +32,8 @@ CameraParameters::CameraParameters(int camera_index_, RoboCupField * field_) :
       new AdditionalCalibrationInformation(camera_index_, field_);
 
   q_rotate180 = Quaternion<double>(0, 0, 1.0,0);
+
+  intrinsic_parameters = new CameraIntrinsicParameters();
 }
 
 CameraParameters::~CameraParameters() {
@@ -94,6 +95,7 @@ GVector::vector3d< double > CameraParameters::getWorldLocation() {
 }
 
 void CameraParameters::addSettingsToList(VarList& list) {
+  list.addChild(intrinsic_parameters->settings);
   list.addChild(focal_length);
   list.addChild(principal_point_x);
   list.addChild(principal_point_y);
@@ -563,7 +565,7 @@ void CameraParameters::calibrate(
     // the right call at compile time
 #ifdef EIGEN_WORLD_VERSION
     // alpha.llt().solve(-beta, &new_p); -- modify 1/15/16
-    //  -- move to Eigen3 structure - 
+    //  -- move to Eigen3 structure -
     //  -- http://eigen.tuxfamily.org/dox/Eigen2ToEigen3.html
     new_p = alpha.llt().solve(-beta);
 #else
@@ -762,6 +764,8 @@ CameraParameters::AdditionalCalibrationInformation::
   imageWidth->addFlags(VARTYPE_FLAG_NOLOAD_ATTRIBUTES);
   imageHeight = new VarInt("Image height",0,0);
   imageHeight->addFlags(VARTYPE_FLAG_NOLOAD_ATTRIBUTES);
+  grid_width = new VarInt("grid width", 7);
+  grid_height = new VarInt("grid height", 9);
 }
 
 void CameraParameters::AdditionalCalibrationInformation::updateControlPoints() {
@@ -872,4 +876,6 @@ void CameraParameters::AdditionalCalibrationInformation::addSettingsToList(
   list.addChild(pointSeparation);
   list.addChild(imageWidth);
   list.addChild(imageHeight);
+  list.addChild(grid_height);
+  list.addChild(grid_width);
 }

@@ -68,7 +68,7 @@ protected:
   VarBool * _v_chessboard;
 
   const CameraParameters& camera_parameters;
-  const RoboCupField& real_field;  
+  const RoboCupField& real_field;
   const ConvexHullImageMask& _image_mask;
 
   LUT3D * _threshold_lut;
@@ -110,17 +110,17 @@ protected:
 
   void DrawMaskHull(FrameData* data, VisualizationFrame* vis_frame);
 
-  void DrawChessboard(FrameData* data, VisualizationFrame* vis_frame);
+  static void DrawChessboard(FrameData* data, VisualizationFrame* vis_frame);
 public:
   PluginVisualize(FrameBuffer* _buffer, const CameraParameters& camera_params,
                   const RoboCupField& real_field, const ConvexHullImageMask &mask);
 
-  ~PluginVisualize();
+  ~PluginVisualize() override;
 
    void setThresholdingLUT(LUT3D * threshold_lut);
-   virtual ProcessResult process(FrameData * data, RenderOptions * options);
-   virtual VarList * getSettings();
-   virtual string getName();
+   ProcessResult process(FrameData * data, RenderOptions * options) override;
+   VarList * getSettings() override;
+   string getName() override;
 };
 
 #endif

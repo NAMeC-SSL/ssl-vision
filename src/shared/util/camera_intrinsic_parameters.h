@@ -1,18 +1,34 @@
-#ifndef CAMERA_INTRINSIC_PARAMETERS_H
-#define CAMERA_INTRINSIC_PARAMETERS_H
+#pragma once
 
+#include <VarDouble.h>
+#include <VarList.h>
 #include <opencv2/opencv.hpp>
 
+using namespace VarTypes;
+
 class CameraIntrinsicParameters {
+private:
+  VarDouble *focal_length_x;
+  VarDouble *focal_length_y;
+  VarDouble *principal_point_x;
+  VarDouble *principal_point_y;
+
+  VarDouble *dist_coeff_k1;
+  VarDouble *dist_coeff_k2;
+  VarDouble *dist_coeff_p1;
+  VarDouble *dist_coeff_p2;
+  VarDouble *dist_coeff_k3;
+
 public:
-  CameraIntrinsicParameters(const int camera_index);
+  CameraIntrinsicParameters();
   ~CameraIntrinsicParameters() = default;
 
-  const int camera_index;
+  void updateMatrices();
+  void updateConfigValues();
+  void reset();
 
-  // camera matrix params
+  VarList *settings;
+
   cv::Mat camera_mat;
-  cv::Mat distortion_coeff;
+  cv::Mat dist_coeffs;
 };
-
-#endif /* CAMERA_INTRINSIC_PARAMETERS_H */
