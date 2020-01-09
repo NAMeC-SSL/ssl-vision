@@ -34,6 +34,8 @@ CameraParameters::CameraParameters(int camera_index_, RoboCupField * field_) :
   q_rotate180 = Quaternion<double>(0, 0, 1.0,0);
 
   intrinsic_parameters = new CameraIntrinsicParameters();
+  extrinsic_parameters = new CameraExtrinsicParameters();
+  use_opencv_model = new VarBool("use openCV camera model", false);
 }
 
 CameraParameters::~CameraParameters() {
@@ -96,6 +98,8 @@ GVector::vector3d< double > CameraParameters::getWorldLocation() {
 
 void CameraParameters::addSettingsToList(VarList& list) {
   list.addChild(intrinsic_parameters->settings);
+  list.addChild(extrinsic_parameters->settings);
+  list.addChild(use_opencv_model);
   list.addChild(focal_length);
   list.addChild(principal_point_x);
   list.addChild(principal_point_y);
@@ -163,28 +167,40 @@ void CameraParameters::radialDistortion(
 void CameraParameters::field2image(
     const GVector::vector3d<double> &p_f,
     GVector::vector2d<double> &p_i) const {
-  Quaternion<double> q_field2cam = Quaternion<double>(
-      q0->getDouble(),q1->getDouble(),q2->getDouble(),q3->getDouble());
-  q_field2cam.norm();
-  GVector::vector3d<double> translation = GVector::vector3d<double>(
-      tx->getDouble(),ty->getDouble(),tz->getDouble());
 
-  // First transform the point from the field into the coordinate system of the
-  // camera
-  GVector::vector3d<double> p_c =
-      q_field2cam.rotateVectorByQuaternion(p_f) + translation;
-  GVector::vector2d<double> p_un =
-      GVector::vector2d<double>(p_c.x/p_c.z, p_c.y/p_c.z);
+  if(use_opencv_model->getBool()) {
+    cv::Mat src(1, 3, CV_32FC1);
+    cv::Mat dst(1, 2, CV_32FC1);
+    src.ptr<cv::Point3f>(0)->x = p_f.x;
+    src.ptr<cv::Point3f>(0)->y = p_f.y;
+    src.ptr<cv::Point3f>(0)->z = p_f.z;
+    cv::projectPoints(src, extrinsic_parameters->rvec, extrinsic_parameters->tvec, intrinsic_parameters->camera_mat, intrinsic_parameters->dist_coeffs, dst);
+    p_i.x = dst.at<float>(0);
+    p_i.y = dst.at<float>(1);
+  } else {
+    Quaternion<double> q_field2cam = Quaternion<double>(
+        q0->getDouble(),q1->getDouble(),q2->getDouble(),q3->getDouble());
+    q_field2cam.norm();
+    GVector::vector3d<double> translation = GVector::vector3d<double>(
+        tx->getDouble(),ty->getDouble(),tz->getDouble());
 
-  // Apply distortion
-  GVector::vector2d<double> p_d;
-  radialDistortion(p_un,p_d);
+    // First transform the point from the field into the coordinate system of the
+    // camera
+    GVector::vector3d<double> p_c =
+        q_field2cam.rotateVectorByQuaternion(p_f) + translation;
+    GVector::vector2d<double> p_un =
+        GVector::vector2d<double>(p_c.x/p_c.z, p_c.y/p_c.z);
 
-  // Then project from the camera coordinate system onto the image plane using
-  // the instrinsic parameters
-  p_i = focal_length->getDouble() * p_d +
-      GVector::vector2d<double>(principal_point_x->getDouble(),
-                                principal_point_y->getDouble());
+    // Apply distortion
+    GVector::vector2d<double> p_d;
+    radialDistortion(p_un,p_d);
+
+    // Then project from the camera coordinate system onto the image plane using
+    // the instrinsic parameters
+    p_i = focal_length->getDouble() * p_d +
+          GVector::vector2d<double>(principal_point_x->getDouble(),
+                                    principal_point_y->getDouble());
+  }
 }
 
 void CameraParameters::field2image(
@@ -225,40 +241,64 @@ void CameraParameters::field2image(
 void CameraParameters::image2field(
     GVector::vector3d<double> &p_f, const GVector::vector2d<double> &p_i,
     double z) const {
-  // Undo scaling and offset
-  GVector::vector2d<double> p_d(
-      (p_i.x - principal_point_x->getDouble()) / focal_length->getDouble(),
-      (p_i.y - principal_point_y->getDouble()) / focal_length->getDouble());
+  if(use_opencv_model->getBool()) {
+    cv::Mat src(3, 1, CV_64FC1);
 
-  // Compensate for distortion (undistort)
-  GVector::vector2d<double> p_un;
-  radialDistortionInv(p_un,p_d);
+    src.ptr<cv::Point3d>(0)->x = p_i.x;
+    src.ptr<cv::Point3d>(0)->y = p_i.y;
+    src.ptr<cv::Point3d>(0)->z = 1;
 
-  // Now we got a ray on the z axis
-  GVector::vector3d<double> v(p_un.x, p_un.y, 1);
+    cv::Mat rotationMatrix(3,3,cv::DataType<double>::type);
+    cv::Rodrigues(extrinsic_parameters->rvec, rotationMatrix);
 
-  // Transform this ray into world coordinates
-  Quaternion<double> q_field2cam = Quaternion<double>(
-      q0->getDouble(),q1->getDouble(),q2->getDouble(),q3->getDouble());
-  q_field2cam.norm();
-  GVector::vector3d<double> translation =
-    GVector::vector3d<double>(tx->getDouble(),ty->getDouble(),tz->getDouble());
+    cv::Mat leftSideMat  = rotationMatrix.inv() * intrinsic_parameters->camera_mat.inv() * src;
+    cv::Mat rightSideMat = rotationMatrix.inv() * extrinsic_parameters->tvec;
 
-  Quaternion<double> q_field2cam_inv = q_field2cam;
-  q_field2cam_inv.invert();
-  GVector::vector3d<double> v_in_w =
-      q_field2cam_inv.rotateVectorByQuaternion(v);
-  GVector::vector3d<double> zero_in_w =
-      q_field2cam_inv.rotateVectorByQuaternion(
-          GVector::vector3d<double>(0,0,0) - translation);
+    double s = (z + rightSideMat.at<double>(2,0))/leftSideMat.at<double>(2,0);
 
-  // Compute the the point where the rays intersects the field
-  double t = GVector::ray_plane_intersect(
-      GVector::vector3d<double>(0,0,z), GVector::vector3d<double>(0,0,1).norm(),
-      zero_in_w, v_in_w.norm());
+    cv::Mat dst = rotationMatrix.inv() *
+                  (s * intrinsic_parameters->camera_mat.inv() * src -
+                   extrinsic_parameters->tvec);
 
-  // Set p_f
-  p_f = zero_in_w + v_in_w.norm() * t;
+    p_f.x = dst.at<cv::Point3d>(0).x;
+    p_f.y = dst.at<cv::Point3d>(0).y;
+    p_f.z = dst.at<cv::Point3d>(0).z;
+  } else {
+    // Undo scaling and offset
+    GVector::vector2d<double> p_d(
+        (p_i.x - principal_point_x->getDouble()) / focal_length->getDouble(),
+        (p_i.y - principal_point_y->getDouble()) / focal_length->getDouble());
+
+    // Compensate for distortion (undistort)
+    GVector::vector2d<double> p_un;
+    radialDistortionInv(p_un, p_d);
+
+    // Now we got a ray on the z axis
+    GVector::vector3d<double> v(p_un.x, p_un.y, 1);
+
+    // Transform this ray into world coordinates
+    Quaternion<double> q_field2cam = Quaternion<double>(
+        q0->getDouble(),q1->getDouble(),q2->getDouble(),q3->getDouble());
+    q_field2cam.norm();
+    GVector::vector3d<double> translation =
+        GVector::vector3d<double>(tx->getDouble(),ty->getDouble(),tz->getDouble());
+
+    Quaternion<double> q_field2cam_inv = q_field2cam;
+    q_field2cam_inv.invert();
+    GVector::vector3d<double> v_in_w =
+        q_field2cam_inv.rotateVectorByQuaternion(v);
+    GVector::vector3d<double> zero_in_w =
+        q_field2cam_inv.rotateVectorByQuaternion(
+            GVector::vector3d<double>(0,0,0) - translation);
+
+    // Compute the the point where the rays intersects the field
+    double t = GVector::ray_plane_intersect(
+        GVector::vector3d<double>(0,0,z), GVector::vector3d<double>(0,0,1).norm(),
+        zero_in_w, v_in_w.norm());
+
+    // Set p_f
+    p_f = zero_in_w + v_in_w.norm() * t;
+  }
 }
 
 

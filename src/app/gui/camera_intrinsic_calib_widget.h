@@ -32,6 +32,7 @@ protected:
   QPushButton *clear_data_button;
   QPushButton *capture_button;
   QPushButton *load_images_button;
+  QPushButton *calibrate_extrinsic_model_button;
 
 public:
   bool patternDetectionEnabled() const {
@@ -57,6 +58,7 @@ public slots:
   void loadImagesClicked();
   void grid_height_changed(int);
   void grid_width_changed(int);
+  void calibrateExtrinsicModel();
 
 public:
   void setRms(double rms);
@@ -64,6 +66,7 @@ public:
 public:
   bool should_clear_data = false;
   bool should_load_images = false;
+  bool should_calibrate_extrinsic = false;
 };
 
 #endif /* CAMERA_INTRINSIC_CALIB_WIDGET_H */

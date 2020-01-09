@@ -151,6 +151,8 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
   // capture control buttons
   {
     auto *capture_control_layout = new QVBoxLayout;
+    auto *capture_control_groupbox = new QGroupBox(tr("Calibration Data"));
+    capture_control_groupbox->setLayout(capture_control_layout);
 
     // captured data info
     {
@@ -192,8 +194,11 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       capture_control_layout->addLayout(hbox);
     }
 
-    auto *capture_control_groupbox = new QGroupBox(tr("Calibration Data"));
-    capture_control_groupbox->setLayout(capture_control_layout);
+    calibrate_extrinsic_model_button = new QPushButton(tr("Calibrate extrinsic model"));
+    connect(calibrate_extrinsic_model_button, SIGNAL(clicked()), this,
+            SLOT(calibrateExtrinsicModel()));
+
+    capture_control_layout->addWidget(calibrate_extrinsic_model_button);
 
     calibration_steps_layout->addWidget(capture_control_groupbox);
   }
@@ -210,6 +215,10 @@ void CameraIntrinsicCalibrationWidget::setNumDataPoints(int n) {
 
 void CameraIntrinsicCalibrationWidget::clearDataClicked() {
   should_clear_data = true;
+}
+
+void CameraIntrinsicCalibrationWidget::calibrateExtrinsicModel() {
+  should_calibrate_extrinsic = true;
 }
 
 void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {

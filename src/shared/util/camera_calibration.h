@@ -29,7 +29,7 @@
 #include "field.h"
 #include "timer.h"
 #include <opencv2/opencv.hpp>
-#include "camera_intrinsic_parameters.h"
+#include "camera_parameters.h"
 #include "messages_robocup_ssl_geometry.pb.h"
 
 /*!
@@ -72,7 +72,9 @@ public:
 
   AdditionalCalibrationInformation* additional_calibration_information;
 
+  VarBool*use_opencv_model;
   CameraIntrinsicParameters*  intrinsic_parameters;
+  CameraExtrinsicParameters* extrinsic_parameters;
 
   GVector::vector3d<double> getWorldLocation();
   void field2image(const GVector::vector3d<double> &p_f, GVector::vector2d<double> &p_i) const;

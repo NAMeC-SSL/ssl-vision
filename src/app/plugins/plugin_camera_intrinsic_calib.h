@@ -3,7 +3,7 @@
 #include <VarTypes.h>
 #include <camera_calibration.h>
 #include <camera_intrinsic_calib_widget.h>
-#include <camera_intrinsic_parameters.h>
+#include <camera_parameters.h>
 #include <framedata.h>
 #include <image.h>
 #include <memory>
@@ -51,4 +51,5 @@ private:
                         Chessboard *chessboard);
   void addChessboard(const Chessboard *chessboard);
   void calibrate(const cv::Size &imageSize) const;
+  void calibrateExtrinsicModel();
 };

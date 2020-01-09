@@ -42,7 +42,6 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   }
 
   if (widget->should_load_images) {
-
     camera_params.intrinsic_parameters->reset();
     std::vector<cv::Mat> images;
     loadImages(images);
@@ -88,6 +87,12 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     lastChessboardCaptureFrame = data->video.getTime();
   }
 
+  if (widget->should_calibrate_extrinsic) {
+    widget->should_calibrate_extrinsic = false;
+
+    calibrateExtrinsicModel();
+  }
+
   if (widget->should_clear_data) {
     widget->should_clear_data = false;
 
@@ -100,8 +105,44 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   return ProcessingOk;
 }
 
-void
-PluginCameraIntrinsicCalibration::calibrate(const cv::Size &imageSize) const {
+void PluginCameraIntrinsicCalibration::calibrateExtrinsicModel() {
+  int k = CameraParameters::AdditionalCalibrationInformation::kNumControlPoints;
+  std::vector<cv::Point3d> objectPoints(k);
+  std::vector<cv::Point2d> imagePoints(k);
+  for (int i = 0; i < k; i++) {
+    objectPoints[i].x = this->camera_params.additional_calibration_information
+                            ->control_point_field_xs[i]
+                            ->getDouble();
+    objectPoints[i].y = this->camera_params.additional_calibration_information
+                            ->control_point_field_ys[i]
+                            ->getDouble();
+    objectPoints[i].z = 0;
+    imagePoints[i].x = this->camera_params.additional_calibration_information
+                           ->control_point_image_xs[i]
+                           ->getDouble();
+    imagePoints[i].y = this->camera_params.additional_calibration_information
+                           ->control_point_image_ys[i]
+                           ->getDouble();
+  }
+
+  bool useExtrinsicGuess = false;
+  bool solved =
+      cv::solvePnP(objectPoints, imagePoints,
+                   this->camera_params.intrinsic_parameters->camera_mat,
+                   this->camera_params.intrinsic_parameters->dist_coeffs,
+                   camera_params.extrinsic_parameters->rvec,
+                   camera_params.extrinsic_parameters->tvec, useExtrinsicGuess,
+                   cv::SOLVEPNP_ITERATIVE);
+  camera_params.extrinsic_parameters->updateConfigValues();
+
+  std::cout << "Solved: " << (solved ? "yes" : "no") << std::endl
+            << "rvec: " << camera_params.extrinsic_parameters->rvec << std::endl
+            << " tvec: " << camera_params.extrinsic_parameters->tvec
+            << std::endl;
+}
+
+void PluginCameraIntrinsicCalibration::calibrate(
+    const cv::Size &imageSize) const {
 
   std::vector<cv::Mat> rvecs;
   std::vector<cv::Mat> tvecs;
