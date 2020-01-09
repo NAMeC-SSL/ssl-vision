@@ -1,7 +1,7 @@
 #pragma once
 
-#include <VarDouble.h>
-#include <VarList.h>
+#include <VarTypes.h>
+#include <QObject>
 #include <opencv2/opencv.hpp>
 
 using namespace VarTypes;
