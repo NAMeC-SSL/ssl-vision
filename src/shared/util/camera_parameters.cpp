@@ -67,6 +67,8 @@ void CameraIntrinsicParameters::updateCameraMat() {
   camera_mat.at<double>(1, 1) = focal_length_y->getDouble();
   camera_mat.at<double>(0, 2) = principal_point_x->getDouble();
   camera_mat.at<double>(1, 2) = principal_point_y->getDouble();
+
+  camera_mat_inv = camera_mat.inv();
 }
 
 void CameraIntrinsicParameters::updateDistCoeffs() {
@@ -93,9 +95,18 @@ void CameraIntrinsicParameters::updateConfigValues() {
 }
 
 void CameraIntrinsicParameters::reset() {
-  camera_mat = cv::Mat::eye(3, 3, CV_64FC1);
-  dist_coeffs = cv::Mat(5, 1, CV_64FC1, cv::Scalar(0));
-  updateConfigValues();
+  focal_length_x->resetToDefault();
+  focal_length_y->resetToDefault();
+  principal_point_x->resetToDefault();
+  principal_point_y->resetToDefault();
+  updateCameraMat();
+
+  dist_coeff_k1->resetToDefault();
+  dist_coeff_k2->resetToDefault();
+  dist_coeff_p1->resetToDefault();
+  dist_coeff_p2->resetToDefault();
+  dist_coeff_k3->resetToDefault();
+  updateDistCoeffs();
 }
 
 CameraExtrinsicParameters::CameraExtrinsicParameters() {
@@ -139,12 +150,19 @@ void CameraExtrinsicParameters::updateTVec() {
   tvec.at<double>(0, 0) = tvec_x->getDouble();
   tvec.at<double>(0, 1) = tvec_y->getDouble();
   tvec.at<double>(0, 2) = tvec_z->getDouble();
+
+  right_side_mat_inv = rotation_mat_inv * tvec;
 }
 
 void CameraExtrinsicParameters::updateRVec() {
   rvec.at<double>(0, 0) = rvec_x->getDouble();
   rvec.at<double>(0, 1) = rvec_y->getDouble();
   rvec.at<double>(0, 2) = rvec_z->getDouble();
+
+  cv::Mat rotation_mat(3, 3, cv::DataType<double>::type);
+  cv::Rodrigues(rvec, rotation_mat);
+  rotation_mat_inv = rotation_mat.inv();
+  right_side_mat_inv = rotation_mat_inv * tvec;
 }
 
 void CameraExtrinsicParameters::updateConfigValues() {
@@ -160,7 +178,13 @@ void CameraExtrinsicParameters::updateConfigValues() {
 }
 
 void CameraExtrinsicParameters::reset() {
-  rvec = cv::Mat(3, 1, CV_64FC1, cv::Scalar(0));
-  tvec = cv::Mat(3, 1, CV_64FC1, cv::Scalar(0));
-  updateConfigValues();
+  tvec_x->resetToDefault();
+  tvec_y->resetToDefault();
+  tvec_z->resetToDefault();
+  updateTVec();
+
+  rvec_x->resetToDefault();
+  rvec_y->resetToDefault();
+  rvec_z->resetToDefault();
+  updateRVec();
 }

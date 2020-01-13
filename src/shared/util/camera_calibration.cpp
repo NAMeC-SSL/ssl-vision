@@ -242,27 +242,32 @@ void CameraParameters::image2field(
     GVector::vector3d<double> &p_f, const GVector::vector2d<double> &p_i,
     double z) const {
   if(use_opencv_model->getBool()) {
-    cv::Mat src(3, 1, CV_64FC1);
+    cv::Mat p_i_mat(3, 1, CV_64FC1);
 
-    src.ptr<cv::Point3d>(0)->x = p_i.x;
-    src.ptr<cv::Point3d>(0)->y = p_i.y;
-    src.ptr<cv::Point3d>(0)->z = 1;
+    p_i_mat.ptr<cv::Point3d>(0)->x = p_i.x;
+    p_i_mat.ptr<cv::Point3d>(0)->y = p_i.y;
+    p_i_mat.ptr<cv::Point3d>(0)->z = 1;
 
-    cv::Mat rotationMatrix(3,3,cv::DataType<double>::type);
-    cv::Rodrigues(extrinsic_parameters->rvec, rotationMatrix);
+    /**
+     * Calculation is based on:
+     * https://stackoverflow.com/questions/12299870/computing-x-y-coordinate-3d-from-image-point
+     */
 
-    cv::Mat leftSideMat  = rotationMatrix.inv() * intrinsic_parameters->camera_mat.inv() * src;
-    cv::Mat rightSideMat = rotationMatrix.inv() * extrinsic_parameters->tvec;
+    const cv::Mat &tvec = extrinsic_parameters->tvec;
+    const cv::Mat &rotation_mat_inv = extrinsic_parameters->rotation_mat_inv;
+    const cv::Mat &camera_mat_inv = intrinsic_parameters->camera_mat_inv;
+    const cv::Mat &right_side_mat_inv = extrinsic_parameters->right_side_mat_inv;
+    const cv::Mat left_side_mat = rotation_mat_inv * camera_mat_inv * p_i_mat;
 
-    double s = (z + rightSideMat.at<double>(2,0))/leftSideMat.at<double>(2,0);
+    double right_side_mat_z = right_side_mat_inv.at<double>(2, 0);
+    double left_side_mat_z = left_side_mat.at<double>(2, 0);
+    double s = (z + right_side_mat_z) / left_side_mat_z;
 
-    cv::Mat dst = rotationMatrix.inv() *
-                  (s * intrinsic_parameters->camera_mat.inv() * src -
-                   extrinsic_parameters->tvec);
+    cv::Mat p_f_mat = rotation_mat_inv * (s * camera_mat_inv * p_i_mat - tvec);
 
-    p_f.x = dst.at<cv::Point3d>(0).x;
-    p_f.y = dst.at<cv::Point3d>(0).y;
-    p_f.z = dst.at<cv::Point3d>(0).z;
+    p_f.x = p_f_mat.at<cv::Point3d>(0).x;
+    p_f.y = p_f_mat.at<cv::Point3d>(0).y;
+    p_f.z = p_f_mat.at<cv::Point3d>(0).z;
   } else {
     // Undo scaling and offset
     GVector::vector2d<double> p_d(

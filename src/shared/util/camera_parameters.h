@@ -32,6 +32,9 @@ public:
 
   cv::Mat camera_mat;
   cv::Mat dist_coeffs;
+
+  // derived matrices for faster computation
+  cv::Mat camera_mat_inv;
 public slots:
   void updateCameraMat();
   void updateDistCoeffs();
@@ -60,6 +63,11 @@ public:
 
   cv::Mat rvec;
   cv::Mat tvec;
+
+  // derived matrices for faster computation
+  cv::Mat rotation_mat_inv;
+  cv::Mat right_side_mat_inv;
+
 public slots:
   void updateRVec();
   void updateTVec();
