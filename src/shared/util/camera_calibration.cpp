@@ -811,6 +811,8 @@ CameraParameters::AdditionalCalibrationInformation::
   imageHeight->addFlags(VARTYPE_FLAG_NOLOAD_ATTRIBUTES);
   grid_width = new VarInt("grid width", 7);
   grid_height = new VarInt("grid height", 9);
+  global_camera_id = new VarInt("global camera id", camera_index_, 0, 7);
+  global_camera_id->setFlags(VARTYPE_FLAG_HIDDEN);
 }
 
 void CameraParameters::AdditionalCalibrationInformation::updateControlPoints() {
@@ -923,4 +925,5 @@ void CameraParameters::AdditionalCalibrationInformation::addSettingsToList(
   list.addChild(imageHeight);
   list.addChild(grid_height);
   list.addChild(grid_width);
+  list.addChild(global_camera_id);
 }

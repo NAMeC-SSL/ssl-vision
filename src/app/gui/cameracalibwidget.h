@@ -37,15 +37,15 @@ public:
     void focusInEvent ( QFocusEvent * event );
     CameraCalibrationWidget(CameraParameters &cp);
     ~CameraCalibrationWidget();
-    
+
     CameraParameters& camera_parameters;
-    
+
     bool getDetectEdges() {return detectEdges;}
-    
+
     void resetDetectEdges() {detectEdges = false;}
-    
-    void set_slider_from_vars();    
-    
+
+    void set_slider_from_vars();
+
   protected:
     QSlider* lineSearchCorridorWidthSlider;
     QLabel* lineSearchCorridorWidthLabelRight;
@@ -65,6 +65,8 @@ public:
     void cameraheight_slider_changed(int val);
     void distortion_slider_changed(int val);
     void line_search_slider_changed(int val);
+    void global_camera_id_changed();
+    void global_camera_id_vartype_changed();
 };
 
 #endif
