@@ -41,6 +41,11 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
         data->map.insert("chessboard", new Chessboard()));
   }
 
+  // cv expects row major order and image stores col major.
+  // height and width are swapped intentionally!
+  cv::Mat greyscale_mat(img_greyscale->getHeight(), img_greyscale->getWidth(),
+                        CV_8UC1, img_greyscale->getData());
+
   if (widget->should_load_images) {
     camera_params.intrinsic_parameters->reset();
     std::vector<cv::Mat> images;
@@ -53,19 +58,15 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
       detectChessboard(mat, scale_factor, &image_chessboard);
       if (image_chessboard.pattern_was_found) {
         addChessboard(&image_chessboard);
-        calibrate(mat.size());
       } else {
         std::cout << "No chessboard detected" << std::endl;
       }
       n++;
-      widget->imagesLoaded(n, images.size());
+      widget->setImagesLoaded(n, images.size());
     }
+    calibrate(greyscale_mat.size());
+    widget->imagesLoaded();
   }
-
-  // cv expects row major order and image stores col major.
-  // height and width are swapped intentionally!
-  cv::Mat greyscale_mat(img_greyscale->getHeight(), img_greyscale->getWidth(),
-                        CV_8UC1, img_greyscale->getData());
 
   if (widget->patternDetectionEnabled() || widget->isCapturing()) {
     detectChessboard(greyscale_mat, scale_down_factor->getDouble(), chessboard);
@@ -100,6 +101,7 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     object_points.clear();
 
     widget->setNumDataPoints(object_points.size());
+    widget->setRms(0.0);
   }
 
   return ProcessingOk;
@@ -261,7 +263,7 @@ void PluginCameraIntrinsicCalibration::loadImages(
     return;
   }
   struct dirent *dirp;
-  std::list<std::string> imgs_to_load;
+  std::list<std::string> imgs_to_load(0);
   while ((dirp = readdir(dp))) {
     std::string file_name(dirp->d_name);
     if (file_name[0] != '.') { // not a hidden file or one of '..' or '.'
@@ -272,8 +274,10 @@ void PluginCameraIntrinsicCalibration::loadImages(
 
   imgs_to_load.sort();
   for (const auto &currentImage : imgs_to_load) {
+    std::cout << "Loading " << currentImage << std::endl;
     cv::Mat srcImg = imread(currentImage, cv::IMREAD_GRAYSCALE);
     images.push_back(srcImg);
+    widget->setImagesLoaded(0, images.size());
   }
 }
 

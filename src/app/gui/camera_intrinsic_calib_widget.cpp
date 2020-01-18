@@ -194,7 +194,8 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       capture_control_layout->addLayout(hbox);
     }
 
-    calibrate_extrinsic_model_button = new QPushButton(tr("Calibrate extrinsic model"));
+    calibrate_extrinsic_model_button =
+        new QPushButton(tr("Calibrate extrinsic model"));
     connect(calibrate_extrinsic_model_button, SIGNAL(clicked()), this,
             SLOT(calibrateExtrinsicModel()));
 
@@ -214,6 +215,7 @@ void CameraIntrinsicCalibrationWidget::setNumDataPoints(int n) {
 }
 
 void CameraIntrinsicCalibrationWidget::clearDataClicked() {
+  setImagesLoaded(0, 0);
   should_clear_data = true;
 }
 
@@ -232,6 +234,7 @@ void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {
 }
 
 void CameraIntrinsicCalibrationWidget::loadImagesClicked() {
+  setImagesLoaded(0, 0);
   should_load_images = true;
   updateConfigurationEnabled();
 }
@@ -248,10 +251,11 @@ void CameraIntrinsicCalibrationWidget::grid_width_changed(int width) {
   camera_params.additional_calibration_information->grid_width->setInt(width);
 }
 
-void CameraIntrinsicCalibrationWidget::imagesLoaded(int n, int total) {
+void CameraIntrinsicCalibrationWidget::setImagesLoaded(int n, int total) {
   images_loaded_label->setText(QString("%1 / %2").arg(n).arg(total));
-  if (n == total) {
-    should_load_images = false;
-    updateConfigurationEnabled();
-  }
+}
+
+void CameraIntrinsicCalibrationWidget::imagesLoaded() {
+  should_load_images = false;
+  updateConfigurationEnabled();
 }

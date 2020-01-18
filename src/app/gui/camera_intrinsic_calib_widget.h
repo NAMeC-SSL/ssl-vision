@@ -36,10 +36,10 @@ protected:
 
 public:
   bool patternDetectionEnabled() const {
-    return detect_pattern_checkbox->checkState() != Qt::Unchecked;
+    return detect_pattern_checkbox->isChecked();
   }
   bool cornerSubPixCorrectionEnabled() const {
-    return corner_subpixel_correction_checkbox->checkState() != Qt::Unchecked;
+    return corner_subpixel_correction_checkbox->isChecked();
   }
   bool isCapturing() const { return capture_button->isChecked(); }
   bool isLoadingFiles() const { return should_load_images; }
@@ -50,7 +50,8 @@ public:
   Pattern getPattern() const {
     return static_cast<Pattern>(pattern_selector->currentIndex());
   }
-  void imagesLoaded(int n, int total);
+  void setImagesLoaded(int n, int total);
+  void imagesLoaded();
 
 public slots:
   void clearDataClicked();
