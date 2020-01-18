@@ -8,13 +8,23 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
       settings(new VarList("Camera Intrinsic Calibration")),
       widget(new CameraIntrinsicCalibrationWidget(_camera_params)),
       camera_params(_camera_params) {
-  image_dir = "test-data/intrinsic_calibration";
+  image_dir = new VarString("pattern image dir", "test-data/intrinsic_calibration");
+  settings->addChild(image_dir);
 
   scale_down_factor = new VarDouble("scale down factor", 0.1);
   settings->addChild(scale_down_factor);
 
   chessboard_capture_dt = new VarDouble("chessboard capture dT", 5.0);
   settings->addChild(chessboard_capture_dt);
+
+  corner_sub_pixel_windows_size = new VarInt("window size", 5, 1);
+  corner_sub_pixel_max_iterations = new VarInt("max iterations", 30, 1);
+  corner_sub_pixel_epsilon = new VarDouble("epsilon", 0.1, 1e-10);
+  auto corner_sub_pixel_list = new VarList("corner sub pixel detection");
+  corner_sub_pixel_list->addChild(corner_sub_pixel_windows_size);
+  corner_sub_pixel_list->addChild(corner_sub_pixel_max_iterations);
+  corner_sub_pixel_list->addChild(corner_sub_pixel_epsilon);
+  settings->addChild(corner_sub_pixel_list);
 }
 
 QWidget *PluginCameraIntrinsicCalibration::getControlWidget() {
@@ -208,9 +218,13 @@ void PluginCameraIntrinsicCalibration::detectChessboard(
   if (chessboard->pattern_was_found &&
       this->widget->cornerSubPixCorrectionEnabled()) {
     cv::cornerSubPix(
-        greyscale_mat, chessboard->corners, cv::Size(5, 5), cv::Size(-1, -1),
-        cv::TermCriteria(cv::TermCriteria::EPS | cv::TermCriteria::MAX_ITER, 30,
-                         0.1));
+        greyscale_mat, chessboard->corners,
+        cv::Size(corner_sub_pixel_windows_size->getInt(),
+                 corner_sub_pixel_windows_size->getInt()),
+        cv::Size(-1, -1),
+        cv::TermCriteria(cv::TermCriteria::EPS | cv::TermCriteria::MAX_ITER,
+                         corner_sub_pixel_max_iterations->getInt(),
+                         corner_sub_pixel_epsilon->getDouble()));
   }
 }
 
@@ -250,7 +264,7 @@ void PluginCameraIntrinsicCalibration::saveImage(const FrameData *data) {
     QString num = QString::number(this->image_points.size());
     num = "00000" + num;
     num = num.right(5);
-    QString filename = QString(image_dir.c_str()) + "/" + num + ".png";
+    QString filename = QString(image_dir->getString().c_str()) + "/" + num + ".png";
     output.save(filename.toStdString());
   }
 }
@@ -258,8 +272,8 @@ void PluginCameraIntrinsicCalibration::saveImage(const FrameData *data) {
 void PluginCameraIntrinsicCalibration::loadImages(
     std::vector<cv::Mat> &images) {
   DIR *dp;
-  if ((dp = opendir(image_dir.c_str())) == nullptr) {
-    std::cerr << "Failed to open directory: " << image_dir << std::endl;
+  if ((dp = opendir(image_dir->getString().c_str())) == nullptr) {
+    std::cerr << "Failed to open directory: " << image_dir->getString() << std::endl;
     return;
   }
   struct dirent *dirp;
@@ -267,7 +281,7 @@ void PluginCameraIntrinsicCalibration::loadImages(
   while ((dirp = readdir(dp))) {
     std::string file_name(dirp->d_name);
     if (file_name[0] != '.') { // not a hidden file or one of '..' or '.'
-      imgs_to_load.push_back(image_dir + "/" + file_name);
+      imgs_to_load.push_back(image_dir->getString() + "/" + file_name);
     }
   }
   closedir(dp);

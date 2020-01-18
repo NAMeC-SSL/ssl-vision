@@ -34,14 +34,19 @@ public:
   std::string getName() override;
 
 private:
-  std::string image_dir;
   CameraParameters camera_params;
   std::vector<std::vector<cv::Point3f>> object_points;
   std::vector<std::vector<cv::Point2f>> image_points;
 
+  VarString *image_dir;
+
   VarDouble *scale_down_factor;
   VarDouble *chessboard_capture_dt;
   double lastChessboardCaptureFrame = 0.0;
+
+  VarInt *corner_sub_pixel_windows_size;
+  VarInt *corner_sub_pixel_max_iterations;
+  VarDouble *corner_sub_pixel_epsilon;
 
   void saveImage(const FrameData *data);
   void loadImages(std::vector<cv::Mat> &images);
