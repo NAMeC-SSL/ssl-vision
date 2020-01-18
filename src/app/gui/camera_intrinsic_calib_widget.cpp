@@ -35,19 +35,21 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
 
       grid_width = new QSpinBox();
       grid_width->setMinimum(2);
-      grid_width->setValue(camera_params.additional_calibration_information
-                               ->grid_width->getInt());
+      grid_width->setValue(0);
       connect(grid_width, SIGNAL(valueChanged(int)), this,
               SLOT(grid_width_changed(int)));
+      connect(camera_params.additional_calibration_information->grid_width, SIGNAL(hasChanged(VarType*)),
+          this, SLOT(grid_width_vartype_changed(VarType*)));
 
       auto *grid_dim_separator_label = new QLabel(tr("x"));
 
       grid_height = new QSpinBox();
       grid_height->setMinimum(2);
-      grid_height->setValue(camera_params.additional_calibration_information
-                                ->grid_height->getInt());
+      grid_height->setValue(0);
       connect(grid_height, SIGNAL(valueChanged(int)), this,
               SLOT(grid_height_changed(int)));
+      connect(camera_params.additional_calibration_information->grid_height, SIGNAL(hasChanged(VarType*)),
+              this, SLOT(grid_height_vartype_changed(VarType*)));
 
       auto *hbox = new QHBoxLayout;
       hbox->addWidget(grid_dimensions_label);
@@ -247,8 +249,16 @@ void CameraIntrinsicCalibrationWidget::grid_height_changed(int height) {
   camera_params.additional_calibration_information->grid_height->setInt(height);
 }
 
+void CameraIntrinsicCalibrationWidget::grid_height_vartype_changed(VarType* varType) {
+  grid_height->setValue(((VarInt*) varType)->getInt());
+}
+
 void CameraIntrinsicCalibrationWidget::grid_width_changed(int width) {
   camera_params.additional_calibration_information->grid_width->setInt(width);
+}
+
+void CameraIntrinsicCalibrationWidget::grid_width_vartype_changed(VarType* varType) {
+  grid_width->setValue(((VarInt*) varType)->getInt());
 }
 
 void CameraIntrinsicCalibrationWidget::setImagesLoaded(int n, int total) {

@@ -58,7 +58,9 @@ public slots:
   void updateConfigurationEnabled();
   void loadImagesClicked();
   void grid_height_changed(int);
+  void grid_height_vartype_changed(VarType* varType);
   void grid_width_changed(int);
+  void grid_width_vartype_changed(VarType* varType);
   void calibrateExtrinsicModel();
 
 public:
