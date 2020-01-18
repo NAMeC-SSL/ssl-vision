@@ -256,10 +256,10 @@ void CameraParameters::image2field(
     const cv::Mat &tvec = extrinsic_parameters->tvec;
     const cv::Mat &rotation_mat_inv = extrinsic_parameters->rotation_mat_inv;
     const cv::Mat &camera_mat_inv = intrinsic_parameters->camera_mat_inv;
-    const cv::Mat &right_side_mat_inv = extrinsic_parameters->right_side_mat_inv;
+    const cv::Mat &right_side_mat = extrinsic_parameters->right_side_mat;
     const cv::Mat left_side_mat = rotation_mat_inv * camera_mat_inv * p_i_mat;
 
-    double right_side_mat_z = right_side_mat_inv.at<double>(2, 0);
+    double right_side_mat_z = right_side_mat.at<double>(2, 0);
     double left_side_mat_z = left_side_mat.at<double>(2, 0);
     double s = (z + right_side_mat_z) / left_side_mat_z;
 
@@ -394,7 +394,11 @@ void CameraParameters::do_calibration(int cal_type) {
       aci->control_point_field_ys[i]->getDouble(), 0.0));
   }
 
-  calibrate(p_f, p_i, cal_type);
+  if(use_opencv_model->getBool()) {
+    calibrateExtrinsicModel(p_f, p_i);
+  } else {
+    calibrate(p_f, p_i, cal_type);
+  }
 }
 
 void CameraParameters::reset() {
@@ -409,6 +413,34 @@ void CameraParameters::reset() {
   q1->resetToDefault();
   q2->resetToDefault();
   q3->resetToDefault();
+}
+
+void CameraParameters::calibrateExtrinsicModel(
+    std::vector<GVector::vector3d<double> > &p_f,
+    std::vector<GVector::vector2d<double> > &p_i) {
+  std::vector<cv::Point3d> objectPoints(p_f.size());
+  std::vector<cv::Point2d> imagePoints(p_i.size());
+  for (int i = 0; i < p_f.size(); i++) {
+    objectPoints[i].x = p_f[i].x;
+    objectPoints[i].y = p_f[i].y;
+    objectPoints[i].z = p_f[i].z;
+    imagePoints[i].x = p_i[i].x;
+    imagePoints[i].y = p_i[i].y;
+  }
+
+  bool useExtrinsicGuess = false;
+  bool solved = cv::solvePnP(objectPoints, imagePoints,
+                   intrinsic_parameters->camera_mat,
+                   intrinsic_parameters->dist_coeffs,
+                   extrinsic_parameters->rvec,
+                   extrinsic_parameters->tvec, useExtrinsicGuess,
+                   cv::SOLVEPNP_ITERATIVE);
+  extrinsic_parameters->updateConfigValues();
+
+  std::cout << "Solved: " << (solved ? "yes" : "no") << std::endl
+            << "rvec: " << extrinsic_parameters->rvec << std::endl
+            << " tvec: " << extrinsic_parameters->tvec
+            << std::endl;
 }
 
 void CameraParameters::calibrate(

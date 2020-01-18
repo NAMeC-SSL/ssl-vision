@@ -35,7 +35,7 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
 
       grid_width = new QSpinBox();
       grid_width->setMinimum(2);
-      grid_width->setValue(0);
+      grid_width->setValue(camera_params.additional_calibration_information->grid_width->getInt());
       connect(grid_width, SIGNAL(valueChanged(int)), this,
               SLOT(grid_width_changed(int)));
       connect(camera_params.additional_calibration_information->grid_width, SIGNAL(hasChanged(VarType*)),
@@ -45,7 +45,7 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
 
       grid_height = new QSpinBox();
       grid_height->setMinimum(2);
-      grid_height->setValue(0);
+      grid_height->setValue(camera_params.additional_calibration_information->grid_height->getInt());
       connect(grid_height, SIGNAL(valueChanged(int)), this,
               SLOT(grid_height_changed(int)));
       connect(camera_params.additional_calibration_information->grid_height, SIGNAL(hasChanged(VarType*)),
@@ -196,13 +196,6 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       capture_control_layout->addLayout(hbox);
     }
 
-    calibrate_extrinsic_model_button =
-        new QPushButton(tr("Calibrate extrinsic model"));
-    connect(calibrate_extrinsic_model_button, SIGNAL(clicked()), this,
-            SLOT(calibrateExtrinsicModel()));
-
-    capture_control_layout->addWidget(calibrate_extrinsic_model_button);
-
     calibration_steps_layout->addWidget(capture_control_groupbox);
   }
 
@@ -219,10 +212,6 @@ void CameraIntrinsicCalibrationWidget::setNumDataPoints(int n) {
 void CameraIntrinsicCalibrationWidget::clearDataClicked() {
   setImagesLoaded(0, 0);
   should_clear_data = true;
-}
-
-void CameraIntrinsicCalibrationWidget::calibrateExtrinsicModel() {
-  should_calibrate_extrinsic = true;
 }
 
 void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {

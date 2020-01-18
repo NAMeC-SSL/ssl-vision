@@ -66,7 +66,7 @@ public:
 
   // derived matrices for faster computation
   cv::Mat rotation_mat_inv;
-  cv::Mat right_side_mat_inv;
+  cv::Mat right_side_mat;
 
 public slots:
   void updateRVec();

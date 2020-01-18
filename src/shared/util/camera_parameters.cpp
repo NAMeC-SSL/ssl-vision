@@ -134,6 +134,8 @@ CameraExtrinsicParameters::CameraExtrinsicParameters() {
 
   rvec = cv::Mat(3, 1, CV_64FC1, cv::Scalar(0));
   tvec = cv::Mat(3, 1, CV_64FC1, cv::Scalar(0));
+  rotation_mat_inv = cv::Mat(3, 3, CV_64FC1, cv::Scalar(0));
+  right_side_mat = cv::Mat(3, 1, CV_64FC1, cv::Scalar(0));
 }
 
 CameraExtrinsicParameters::~CameraExtrinsicParameters() {
@@ -151,7 +153,7 @@ void CameraExtrinsicParameters::updateTVec() {
   tvec.at<double>(0, 1) = tvec_y->getDouble();
   tvec.at<double>(0, 2) = tvec_z->getDouble();
 
-  right_side_mat_inv = rotation_mat_inv * tvec;
+  right_side_mat = rotation_mat_inv * tvec;
 }
 
 void CameraExtrinsicParameters::updateRVec() {
@@ -162,16 +164,16 @@ void CameraExtrinsicParameters::updateRVec() {
   cv::Mat rotation_mat(3, 3, cv::DataType<double>::type);
   cv::Rodrigues(rvec, rotation_mat);
   rotation_mat_inv = rotation_mat.inv();
-  right_side_mat_inv = rotation_mat_inv * tvec;
+  right_side_mat = rotation_mat_inv * tvec;
 }
 
 void CameraExtrinsicParameters::updateConfigValues() {
-  cv::Mat new_tvec(tvec);
+  cv::Mat new_tvec = tvec.clone();
   tvec_x->setDouble(new_tvec.at<double>(0, 0));
   tvec_y->setDouble(new_tvec.at<double>(0, 1));
   tvec_z->setDouble(new_tvec.at<double>(0, 2));
 
-  cv::Mat new_rvec(rvec);
+  cv::Mat new_rvec = rvec.clone();
   rvec_x->setDouble(new_rvec.at<double>(0, 0));
   rvec_y->setDouble(new_rvec.at<double>(0, 1));
   rvec_z->setDouble(new_rvec.at<double>(0, 2));

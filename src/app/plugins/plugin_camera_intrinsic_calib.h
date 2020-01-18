@@ -56,5 +56,4 @@ private:
                         Chessboard *chessboard);
   void addChessboard(const Chessboard *chessboard);
   void calibrate(const cv::Size &imageSize) const;
-  void calibrateExtrinsicModel();
 };

@@ -80,6 +80,7 @@ public:
   void field2image(const GVector::vector3d<double> &p_f, GVector::vector2d<double> &p_i) const;
   void image2field(GVector::vector3d< double >& p_f, const GVector::vector2d< double >& p_i, double z) const;
   void calibrate(std::vector<GVector::vector3d<double> > &p_f, std::vector<GVector::vector2d<double> > &p_i, int cal_type);
+  void calibrateExtrinsicModel(std::vector<GVector::vector3d<double> > &p_f, std::vector<GVector::vector2d<double> > &p_i);
 
   double radialDistortion(double ru) const;  //apply radial distortion to (undistorted) radius ru and return distorted radius
   double radialDistortionInv(double rd) const;  //invert radial distortion from (distorted) radius rd and return undistorted radius
