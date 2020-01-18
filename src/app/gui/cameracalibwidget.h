@@ -54,6 +54,7 @@ public:
     QSlider* distortionSlider;
     QLabel* distortionLabelRight;
     QLineEdit* globalCameraId;
+    QCheckBox* openCvCalibrationCheckBox;
     bool detectEdges;
 
     public slots:
@@ -67,6 +68,8 @@ public:
     void line_search_slider_changed(int val);
     void global_camera_id_changed();
     void global_camera_id_vartype_changed();
+    void opencvCalibrationTypeChanged(int val);
+    void opencvCalibrationTypeChangedVarType();
 };
 
 #endif

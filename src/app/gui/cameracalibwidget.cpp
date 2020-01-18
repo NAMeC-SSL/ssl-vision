@@ -51,6 +51,11 @@ CameraCalibrationWidget::CameraCalibrationWidget(CameraParameters &_cp) : camera
   connect(camera_parameters.additional_calibration_information->global_camera_id, SIGNAL(hasChanged(VarType*)),
       this, SLOT(global_camera_id_vartype_changed()));
 
+  openCvCalibrationCheckBox = new QCheckBox("Use OpenCV calibration separate intrinsic and extrinsic model");
+  openCvCalibrationCheckBox->setChecked(camera_parameters.use_opencv_model->getBool());
+  connect(openCvCalibrationCheckBox, SIGNAL(stateChanged(int)), this, SLOT(opencvCalibrationTypeChanged(int)));
+  connect(camera_parameters.use_opencv_model, SIGNAL(hasChanged(VarType *)), this, SLOT(opencvCalibrationTypeChangedVarType()));
+
   QPushButton* updateControlPointsButton = new QPushButton(tr("Update control points"));
   connect(updateControlPointsButton, SIGNAL(clicked()), SLOT(is_clicked_update_control_points()));
   QPushButton* initialCalibrationButton = new QPushButton(tr("Do initial calibration"));
@@ -99,11 +104,10 @@ CameraCalibrationWidget::CameraCalibrationWidget(CameraParameters &_cp) : camera
   hbox->addWidget(globalCameraId);
   hbox->addWidget(updateControlPointsButton);
   hbox->addStretch(1);
-  QGroupBox* globalCameraSelectBox = new QGroupBox();
-  globalCameraSelectBox->setLayout(hbox);
 
   QVBoxLayout *vbox = new QVBoxLayout;
-  vbox->addWidget(globalCameraSelectBox);
+  vbox->addLayout(hbox);
+  vbox->addWidget(openCvCalibrationCheckBox);
   vbox->addWidget(initialCalibrationButton);
   vbox->addWidget(additionalPointsButton);
   vbox->addWidget(fullCalibrationButton);
@@ -207,4 +211,12 @@ void CameraCalibrationWidget::global_camera_id_changed() {
 
 void CameraCalibrationWidget::global_camera_id_vartype_changed() {
   globalCameraId->setText(QString::number(camera_parameters.additional_calibration_information->global_camera_id->getInt()));
+}
+
+void CameraCalibrationWidget::opencvCalibrationTypeChanged(int state) {
+  camera_parameters.use_opencv_model->setBool(state == Qt::Checked);
+}
+
+void CameraCalibrationWidget::opencvCalibrationTypeChangedVarType() {
+  openCvCalibrationCheckBox->setChecked(camera_parameters.use_opencv_model->getBool());
 }
