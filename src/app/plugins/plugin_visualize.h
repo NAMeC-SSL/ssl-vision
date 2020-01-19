@@ -62,6 +62,7 @@ protected:
   VarBool * _v_blobs;
   VarBool * _v_camera_calibration;
   VarBool * _v_calibration_result;
+  VarBool * _v_calibration_result_z;
   VarBool * _v_complete_sobel;
   VarBool * _v_detected_edges;
   VarBool * _v_mask_hull;
