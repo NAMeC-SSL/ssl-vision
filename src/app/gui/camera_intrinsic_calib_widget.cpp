@@ -255,6 +255,5 @@ void CameraIntrinsicCalibrationWidget::setImagesLoaded(int n, int total) {
 }
 
 void CameraIntrinsicCalibrationWidget::imagesLoaded() {
-  should_load_images = false;
   updateConfigurationEnabled();
 }

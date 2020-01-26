@@ -8,27 +8,41 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
       settings(new VarList("Camera Intrinsic Calibration")),
       widget(new CameraIntrinsicCalibrationWidget(_camera_params)),
       camera_params(_camera_params) {
-  image_dir = new VarString("pattern image dir", "test-data/intrinsic_calibration");
-  settings->addChild(image_dir);
 
-  scale_down_factor = new VarDouble("scale down factor", 0.1);
-  settings->addChild(scale_down_factor);
+  worker = new PluginCameraIntrinsicCalibrationWorker(_camera_params, widget);
 
+  scale_down_factor = new VarDouble("scale down factor", 0.4);
   chessboard_capture_dt = new VarDouble("chessboard capture dT", 5.0);
-  settings->addChild(chessboard_capture_dt);
 
-  corner_sub_pixel_windows_size = new VarInt("window size", 5, 1);
-  corner_sub_pixel_max_iterations = new VarInt("max iterations", 30, 1);
-  corner_sub_pixel_epsilon = new VarDouble("epsilon", 0.1, 1e-10);
   auto corner_sub_pixel_list = new VarList("corner sub pixel detection");
-  corner_sub_pixel_list->addChild(corner_sub_pixel_windows_size);
-  corner_sub_pixel_list->addChild(corner_sub_pixel_max_iterations);
-  corner_sub_pixel_list->addChild(corner_sub_pixel_epsilon);
+  corner_sub_pixel_list->addChild(worker->corner_sub_pixel_windows_size);
+  corner_sub_pixel_list->addChild(worker->corner_sub_pixel_max_iterations);
+  corner_sub_pixel_list->addChild(worker->corner_sub_pixel_epsilon);
+
+  settings->addChild(worker->image_storage->image_dir);
+  settings->addChild(scale_down_factor);
+  settings->addChild(chessboard_capture_dt);
   settings->addChild(corner_sub_pixel_list);
 }
 
+PluginCameraIntrinsicCalibration::~PluginCameraIntrinsicCalibration() {
+  worker->deleteLater();
+  delete widget;
+  delete worker;
+  delete scale_down_factor;
+  delete chessboard_capture_dt;
+}
+
+VarList *PluginCameraIntrinsicCalibration::getSettings() {
+  return settings.get();
+}
+
+std::string PluginCameraIntrinsicCalibration::getName() {
+  return "Camera Intrinsic Calibration";
+}
+
 QWidget *PluginCameraIntrinsicCalibration::getControlWidget() {
-  return static_cast<QWidget *>(widget.get());
+  return static_cast<QWidget *>(worker->widget);
 }
 
 ProcessResult
@@ -55,64 +69,76 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   // height and width are swapped intentionally!
   cv::Mat greyscale_mat(img_greyscale->getHeight(), img_greyscale->getWidth(),
                         CV_8UC1, img_greyscale->getData());
+  worker->imageSize = greyscale_mat.size();
 
   if (widget->should_load_images) {
-    camera_params.intrinsic_parameters->reset();
-    std::vector<cv::Mat> images;
-    loadImages(images);
-
-    int n = 0;
-    for (cv::Mat &mat : images) {
-      Chessboard image_chessboard;
-      double scale_factor = 1.0;
-      detectChessboard(mat, scale_factor, &image_chessboard);
-      if (image_chessboard.pattern_was_found) {
-        addChessboard(&image_chessboard);
-      } else {
-        std::cout << "No chessboard detected" << std::endl;
-      }
-      n++;
-      widget->setImagesLoaded(n, images.size());
-    }
-    calibrate(greyscale_mat.size());
-    widget->imagesLoaded();
+    widget->should_load_images = false;
+    emit worker->startLoadImages();
   }
 
   if (widget->patternDetectionEnabled() || widget->isCapturing()) {
-    detectChessboard(greyscale_mat, scale_down_factor->getDouble(), chessboard);
+    worker->detectChessboard(greyscale_mat, scale_down_factor->getDouble(),
+                             chessboard);
   }
 
-  if (widget->isCapturing()) {
-    if (!chessboard->pattern_was_found) {
-      return ProcessingOk;
-    }
+  if (widget->isCapturing() && chessboard->pattern_was_found) {
 
     double captureDiff = data->video.getTime() - lastChessboardCaptureFrame;
     if (captureDiff < chessboard_capture_dt->getDouble()) {
       return ProcessingOk;
     }
-
-    saveImage(data);
-    addChessboard(chessboard);
-    calibrate(greyscale_mat.size());
     lastChessboardCaptureFrame = data->video.getTime();
+
+    RawImage image_copy;
+    image_copy.deepCopyFromRawImage(data->video, true);
+    worker->image_storage->image_save_mutex.lock();
+    worker->image_storage->images_to_save.push(image_copy);
+    worker->image_storage->image_save_mutex.unlock();
+    emit worker->image_storage->startSaveImages();
+
+    worker->addChessboard(chessboard);
+    emit worker->startCalibration();
   }
 
   if (widget->should_clear_data) {
-    widget->should_clear_data = false;
-
-    image_points.clear();
-    object_points.clear();
-
-    widget->setNumDataPoints(object_points.size());
-    widget->setRms(0.0);
+    worker->clearData();
   }
 
   return ProcessingOk;
 }
 
-void PluginCameraIntrinsicCalibration::calibrate(
-    const cv::Size &imageSize) const {
+PluginCameraIntrinsicCalibrationWorker::PluginCameraIntrinsicCalibrationWorker(
+    CameraParameters &_camera_params, CameraIntrinsicCalibrationWidget *widget)
+    : widget(widget), camera_params(_camera_params) {
+
+  corner_sub_pixel_windows_size = new VarInt("window size", 5, 1);
+  corner_sub_pixel_max_iterations = new VarInt("max iterations", 30, 1);
+  corner_sub_pixel_epsilon = new VarDouble("epsilon", 0.1, 1e-10);
+
+  image_storage = new ImageStorage(widget);
+
+  thread = new QThread();
+  thread->setObjectName("IntrinsicCalibration");
+  moveToThread(thread);
+  connect(this, SIGNAL(startLoadImages()), this, SLOT(loadImages()));
+  connect(this, SIGNAL(startCalibration()), this, SLOT(calibrate()));
+  thread->start();
+}
+
+PluginCameraIntrinsicCalibrationWorker::
+    ~PluginCameraIntrinsicCalibrationWorker() {
+  thread->quit();
+  thread->deleteLater();
+
+  delete image_storage;
+  delete corner_sub_pixel_windows_size;
+  delete corner_sub_pixel_epsilon;
+  delete corner_sub_pixel_max_iterations;
+}
+
+void PluginCameraIntrinsicCalibrationWorker::calibrate() {
+
+  calib_mutex.lock();
 
   std::vector<cv::Mat> rvecs;
   std::vector<cv::Mat> tvecs;
@@ -128,13 +154,17 @@ void PluginCameraIntrinsicCalibration::calibrate(
     std::cerr << "calibration failed: " << e.err << std::endl;
   }
   this->widget->setRms(rms);
+
+  calib_mutex.unlock();
 }
 
-void PluginCameraIntrinsicCalibration::addChessboard(
+void PluginCameraIntrinsicCalibrationWorker::addChessboard(
     const Chessboard *chessboard) {
   if (!chessboard->pattern_was_found) {
     return;
   }
+
+  calib_mutex.lock();
 
   this->image_points.push_back(chessboard->corners);
 
@@ -147,9 +177,10 @@ void PluginCameraIntrinsicCalibration::addChessboard(
   this->object_points.push_back(obj);
 
   this->widget->setNumDataPoints(this->object_points.size());
+  calib_mutex.unlock();
 }
 
-void PluginCameraIntrinsicCalibration::detectChessboard(
+void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
     const cv::Mat &greyscale_mat, const double scale_factor,
     Chessboard *chessboard) {
   chessboard->pattern_size.height =
@@ -186,14 +217,14 @@ void PluginCameraIntrinsicCalibration::detectChessboard(
   }
 }
 
-bool PluginCameraIntrinsicCalibration::findPattern(
+bool PluginCameraIntrinsicCalibrationWorker::findPattern(
     const cv::Mat &image, const cv::Size &pattern_size,
     vector<cv::Point2f> &corners) {
   using Pattern = CameraIntrinsicCalibrationWidget::Pattern;
   int cb_flags = cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_FAST_CHECK +
                  cv::CALIB_CB_NORMALIZE_IMAGE;
 
-  switch (this->widget->getPattern()) {
+  switch (widget->getPattern()) {
   case Pattern::CHECKERBOARD:
     return cv::findChessboardCorners(image, pattern_size, corners, cb_flags);
   case Pattern::CIRCLES:
@@ -206,32 +237,98 @@ bool PluginCameraIntrinsicCalibration::findPattern(
   }
 }
 
-void PluginCameraIntrinsicCalibration::saveImage(const FrameData *data) {
+void PluginCameraIntrinsicCalibrationWorker::loadImages() {
+  std::vector<cv::Mat> images;
+  image_storage->readImages(images);
+
+  int n = 0;
+  for (cv::Mat &mat : images) {
+    Chessboard image_chessboard;
+    double scale_factor = 1.0;
+    detectChessboard(mat, scale_factor, &image_chessboard);
+    if (image_chessboard.pattern_was_found) {
+      addChessboard(&image_chessboard);
+    } else {
+      std::cout << "No chessboard detected" << std::endl;
+    }
+    n++;
+    widget->setImagesLoaded(n, images.size());
+  }
+  calibrate();
+  widget->imagesLoaded();
+}
+
+void PluginCameraIntrinsicCalibrationWorker::clearData() {
+  calib_mutex.lock();
+  widget->should_clear_data = false;
+
+  image_points.clear();
+  object_points.clear();
+
+  widget->setNumDataPoints(object_points.size());
+  widget->setRms(0.0);
+
+  calib_mutex.unlock();
+}
+
+ImageStorage::ImageStorage(CameraIntrinsicCalibrationWidget *widget)
+    : widget(widget) {
+  image_dir =
+      new VarString("pattern image dir", "test-data/intrinsic_calibration");
+
+  thread = new QThread();
+  thread->setObjectName("IntrinsicCalibrationImageStorage");
+  moveToThread(thread);
+  connect(this, SIGNAL(startSaveImages()), this, SLOT(saveImages()));
+  thread->start();
+}
+
+ImageStorage::~ImageStorage() {
+  thread->quit();
+  thread->deleteLater();
+  delete image_dir;
+}
+
+void ImageStorage::saveImages() {
+
+  image_save_mutex.lock();
+  if (images_to_save.empty()) {
+    image_save_mutex.unlock();
+  } else {
+    RawImage image = images_to_save.front();
+    images_to_save.pop();
+    image_save_mutex.unlock();
+    saveImage(image);
+    saveImages();
+  }
+}
+
+void ImageStorage::saveImage(RawImage &image) {
   rgbImage output;
-  ColorFormat fmt = data->video.getColorFormat();
-  output.allocate(data->video.getWidth(), data->video.getHeight());
+  ColorFormat fmt = image.getColorFormat();
+  output.allocate(image.getWidth(), image.getHeight());
   if (fmt == COLOR_YUV422_UYVY) {
-    Conversions::uyvy2rgb(data->video.getData(), output.getData(),
-                          data->video.getWidth(), data->video.getHeight());
+    Conversions::uyvy2rgb(image.getData(), output.getData(), image.getWidth(),
+                          image.getHeight());
   } else if (fmt == COLOR_RGB8) {
-    memcpy(output.getData(), data->video.getData(), data->video.getNumBytes());
+    memcpy(output.getData(), image.getData(), image.getNumBytes());
   } else {
     output.allocate(0, 0);
   }
   if (output.getNumBytes() > 0) {
-    QString num = QString::number(this->image_points.size());
-    num = "00000" + num;
-    num = num.right(5);
-    QString filename = QString(image_dir->getString().c_str()) + "/" + num + ".png";
+    long t_now = (long)(GetTimeSec() * 1e9);
+    QString num = QString::number(t_now);
+    QString filename =
+        QString(image_dir->getString().c_str()) + "/" + num + ".png";
     output.save(filename.toStdString());
   }
 }
 
-void PluginCameraIntrinsicCalibration::loadImages(
-    std::vector<cv::Mat> &images) {
+void ImageStorage::readImages(std::vector<cv::Mat> &images) {
   DIR *dp;
   if ((dp = opendir(image_dir->getString().c_str())) == nullptr) {
-    std::cerr << "Failed to open directory: " << image_dir->getString() << std::endl;
+    std::cerr << "Failed to open directory: " << image_dir->getString()
+              << std::endl;
     return;
   }
   struct dirent *dirp;
@@ -251,12 +348,4 @@ void PluginCameraIntrinsicCalibration::loadImages(
     images.push_back(srcImg);
     widget->setImagesLoaded(0, images.size());
   }
-}
-
-VarList *PluginCameraIntrinsicCalibration::getSettings() {
-  return settings.get();
-}
-
-std::string PluginCameraIntrinsicCalibration::getName() {
-  return "Camera Intrinsic Calibration";
 }
