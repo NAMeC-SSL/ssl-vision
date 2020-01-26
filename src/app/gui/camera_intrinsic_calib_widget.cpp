@@ -119,6 +119,11 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
               SLOT(updateConfigurationEnabled()));
       calibration_instructions_layout->addWidget(capture_button);
 
+      calibrate_button = new QPushButton(tr("Calibrate"));
+      connect(calibrate_button, SIGNAL(clicked()), this,
+              SLOT(calibrateClicked()));
+      calibration_instructions_layout->addWidget(calibrate_button);
+
       calibration_instructions_layout->addWidget(
           new QLabel(tr("Images where a chessboard was detected "
                         "are saved in 'test-data/intrinsic_calibration'.\n"
@@ -129,6 +134,11 @@ CameraIntrinsicCalibrationWidget::CameraIntrinsicCalibrationWidget(
       connect(load_images_button, SIGNAL(clicked()), this,
               SLOT(loadImagesClicked()));
       calibration_instructions_layout->addWidget(load_images_button);
+
+      reset_model_button = new QPushButton(tr("Reset model"));
+      connect(reset_model_button, SIGNAL(clicked()), this,
+              SLOT(resetModelClicked()));
+      calibration_instructions_layout->addWidget(reset_model_button);
     }
 
     // images loaded
@@ -214,6 +224,11 @@ void CameraIntrinsicCalibrationWidget::clearDataClicked() {
   should_clear_data = true;
 }
 
+void CameraIntrinsicCalibrationWidget::calibrateClicked() {
+  should_calibrate = true;
+  updateConfigurationEnabled();
+}
+
 void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {
   pattern_selector->setEnabled(isConfigurationEnabled());
   grid_width->setEnabled(isConfigurationEnabled());
@@ -222,12 +237,17 @@ void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {
   detect_pattern_checkbox->setEnabled(isConfigurationEnabled());
   corner_subpixel_correction_checkbox->setEnabled(isConfigurationEnabled());
   load_images_button->setEnabled(isConfigurationEnabled());
+  calibrate_button->setEnabled(isConfigurationEnabled());
 }
 
 void CameraIntrinsicCalibrationWidget::loadImagesClicked() {
   setImagesLoaded(0, 0);
   should_load_images = true;
   updateConfigurationEnabled();
+}
+
+void CameraIntrinsicCalibrationWidget::resetModelClicked() {
+  camera_params.intrinsic_parameters->reset();
 }
 
 void CameraIntrinsicCalibrationWidget::setRms(double rms) {

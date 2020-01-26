@@ -31,7 +31,9 @@ protected:
   QLabel *images_loaded_label;
   QPushButton *clear_data_button;
   QPushButton *capture_button;
+  QPushButton *calibrate_button;
   QPushButton *load_images_button;
+  QPushButton *reset_model_button;
 
 public:
   bool patternDetectionEnabled() const {
@@ -43,7 +45,7 @@ public:
   bool isCapturing() const { return capture_button->isChecked(); }
   bool isLoadingFiles() const { return should_load_images; }
   bool isConfigurationEnabled() const {
-    return !isCapturing() && !isLoadingFiles();
+    return !isCapturing() && !isLoadingFiles() && !calibrating;
   }
   void setNumDataPoints(int n);
   Pattern getPattern() const {
@@ -54,12 +56,14 @@ public:
 
 public slots:
   void clearDataClicked();
+  void calibrateClicked();
   void updateConfigurationEnabled();
   void loadImagesClicked();
   void grid_height_changed(int);
   void grid_height_vartype_changed(VarType* varType);
   void grid_width_changed(int);
   void grid_width_vartype_changed(VarType* varType);
+  void resetModelClicked();
 
 public:
   void setRms(double rms);
@@ -67,6 +71,8 @@ public:
 public:
   bool should_clear_data = false;
   bool should_load_images = false;
+  bool should_calibrate = false;
+  bool calibrating = false;
 };
 
 #endif /* CAMERA_INTRINSIC_CALIB_WIDGET_H */
