@@ -97,6 +97,10 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     emit worker->image_storage->startSaveImages();
 
     worker->addChessboard(chessboard);
+  }
+
+  if(widget->should_calibrate) {
+    widget->should_calibrate = false;
     emit worker->startCalibration();
   }
 
@@ -139,6 +143,8 @@ PluginCameraIntrinsicCalibrationWorker::
 void PluginCameraIntrinsicCalibrationWorker::calibrate() {
 
   calib_mutex.lock();
+  widget->calibrating = true;
+  widget->updateConfigurationEnabled();
 
   std::vector<cv::Mat> rvecs;
   std::vector<cv::Mat> tvecs;
@@ -155,6 +161,8 @@ void PluginCameraIntrinsicCalibrationWorker::calibrate() {
   }
   this->widget->setRms(rms);
 
+  widget->calibrating = false;
+  widget->updateConfigurationEnabled();
   calib_mutex.unlock();
 }
 
