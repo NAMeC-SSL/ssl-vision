@@ -267,6 +267,7 @@ qt4_wrap_cpp (MOC_SRCS
 	src/app/plugins/plugin_colorcalib.h
 	src/app/plugins/plugin_colorthreshold.h
 	src/app/plugins/plugin_auto_color_calibration.h
+	src/app/plugins/plugin_camera_intrinsic_calib.h
 
 	src/app/stacks/multistack_robocup_ssl.h
 

@@ -42,7 +42,7 @@ public slots:
 class PluginCameraIntrinsicCalibrationWorker : public QObject {
   Q_OBJECT
 public:
-  explicit PluginCameraIntrinsicCalibrationWorker(
+  PluginCameraIntrinsicCalibrationWorker(
       CameraParameters &_camera_params,
       CameraIntrinsicCalibrationWidget *widget);
   ~PluginCameraIntrinsicCalibrationWorker() override;
