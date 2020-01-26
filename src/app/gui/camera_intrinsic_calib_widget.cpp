@@ -238,6 +238,7 @@ void CameraIntrinsicCalibrationWidget::updateConfigurationEnabled() {
   corner_subpixel_correction_checkbox->setEnabled(isConfigurationEnabled());
   load_images_button->setEnabled(isConfigurationEnabled());
   calibrate_button->setEnabled(isConfigurationEnabled());
+  reset_model_button->setEnabled(isConfigurationEnabled());
 }
 
 void CameraIntrinsicCalibrationWidget::loadImagesClicked() {
