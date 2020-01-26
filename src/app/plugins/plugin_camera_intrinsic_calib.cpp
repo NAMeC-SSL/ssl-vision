@@ -23,6 +23,10 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
   settings->addChild(scale_down_factor);
   settings->addChild(chessboard_capture_dt);
   settings->addChild(corner_sub_pixel_list);
+
+  connect(this, SIGNAL(startLoadImages()), worker, SLOT(loadImages()));
+  connect(this, SIGNAL(startCalibration()), worker, SLOT(calibrate()));
+  connect(this, SIGNAL(startSaveImages()), worker->image_storage, SLOT(saveImages()));
 }
 
 PluginCameraIntrinsicCalibration::~PluginCameraIntrinsicCalibration() {
@@ -73,7 +77,7 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
 
   if (widget->should_load_images) {
     widget->should_load_images = false;
-    emit worker->startLoadImages();
+    emit startLoadImages();
   }
 
   if (widget->patternDetectionEnabled() || widget->isCapturing()) {
@@ -94,14 +98,14 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     worker->image_storage->image_save_mutex.lock();
     worker->image_storage->images_to_save.push(image_copy);
     worker->image_storage->image_save_mutex.unlock();
-    emit worker->image_storage->startSaveImages();
+    emit startSaveImages();
 
     worker->addChessboard(chessboard);
   }
 
   if(widget->should_calibrate) {
     widget->should_calibrate = false;
-    emit worker->startCalibration();
+    emit startCalibration();
   }
 
   if (widget->should_clear_data) {
@@ -124,8 +128,6 @@ PluginCameraIntrinsicCalibrationWorker::PluginCameraIntrinsicCalibrationWorker(
   thread = new QThread();
   thread->setObjectName("IntrinsicCalibration");
   moveToThread(thread);
-  connect(this, SIGNAL(startLoadImages()), this, SLOT(loadImages()));
-  connect(this, SIGNAL(startCalibration()), this, SLOT(calibrate()));
   thread->start();
 }
 
@@ -287,7 +289,6 @@ ImageStorage::ImageStorage(CameraIntrinsicCalibrationWidget *widget)
   thread = new QThread();
   thread->setObjectName("IntrinsicCalibrationImageStorage");
   moveToThread(thread);
-  connect(this, SIGNAL(startSaveImages()), this, SLOT(saveImages()));
   thread->start();
 }
 

@@ -37,9 +37,6 @@ public:
 
 public slots:
   void saveImages();
-
-signals:
-  void startSaveImages();
 };
 
 class PluginCameraIntrinsicCalibrationWorker : public QObject {
@@ -76,15 +73,12 @@ public slots:
   void loadImages();
   void calibrate();
 
-signals:
-  void startLoadImages();
-  void startCalibration();
-
 private:
   CameraParameters camera_params;
 };
 
 class PluginCameraIntrinsicCalibration : public VisionPlugin {
+  Q_OBJECT
 protected:
   std::unique_ptr<VarList> settings;
 
@@ -98,6 +92,11 @@ public:
   ProcessResult process(FrameData *data, RenderOptions *options) override;
   VarList *getSettings() override;
   std::string getName() override;
+
+signals:
+  void startLoadImages();
+  void startCalibration();
+  void startSaveImages();
 
 private:
   PluginCameraIntrinsicCalibrationWorker *worker;
