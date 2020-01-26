@@ -42,7 +42,8 @@ PluginVisualize::PluginVisualize(FrameBuffer *_buffer,
   _v_blobs = new VarBool("blobs", false);
   _v_camera_calibration = new VarBool("camera calibration", false);
   _v_calibration_result = new VarBool("calibration result", false);
-  _v_calibration_result_z = new VarBool("calibration result 0.15m pillars", false);
+  _v_calibration_result_pillars = new VarBool("calibration result pillars", false);
+  _v_calibration_result_pillars_height = new VarDouble("calibration result pillars height", 150.0);
   _v_detected_edges = new VarBool("detected edges", false);
   _v_complete_sobel = new VarBool("complete edge detection", false);
   _v_complete_sobel->setBool(false);
@@ -58,7 +59,8 @@ PluginVisualize::PluginVisualize(FrameBuffer *_buffer,
   _settings->addChild(_v_blobs);
   _settings->addChild(_v_camera_calibration);
   _settings->addChild(_v_calibration_result);
-  _settings->addChild(_v_calibration_result_z);
+  _settings->addChild(_v_calibration_result_pillars);
+  _settings->addChild(_v_calibration_result_pillars_height);
   _settings->addChild(_v_detected_edges);
   _settings->addChild(_v_complete_sobel);
   _settings->addChild(_v_mask_hull);
@@ -243,7 +245,7 @@ void PluginVisualize::DrawCalibrationResult(FrameData *data,
                  arc.a2->getDouble(), steps_per_line, vis_frame);
   }
 
-  if (_v_calibration_result_z->getBool()) {
+  if (_v_calibration_result_pillars->getBool()) {
     for (size_t i = 0; i < real_field.field_lines.size(); ++i) {
       const FieldLine &line_segment = *(real_field.field_lines[i]);
       const GVector::vector3d<double> p1z0(line_segment.p1_x->getDouble(),
@@ -252,10 +254,10 @@ void PluginVisualize::DrawCalibrationResult(FrameData *data,
                                            line_segment.p2_y->getDouble(), 0.0);
       const GVector::vector3d<double> p1z1(line_segment.p1_x->getDouble(),
                                            line_segment.p1_y->getDouble(),
-                                           150.0);
+                                           _v_calibration_result_pillars_height->getDouble());
       const GVector::vector3d<double> p2z1(line_segment.p2_x->getDouble(),
                                            line_segment.p2_y->getDouble(),
-                                           150.0);
+                                           _v_calibration_result_pillars_height->getDouble());
       drawFieldLine(p1z0, p1z1, steps_per_line, vis_frame);
       drawFieldLine(p2z0, p2z1, steps_per_line, vis_frame);
     }
