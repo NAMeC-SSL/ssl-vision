@@ -47,6 +47,8 @@ public:
     void set_slider_from_vars();
 
   protected:
+    QPushButton* fullCalibrationButton;
+
     QSlider* lineSearchCorridorWidthSlider;
     QLabel* lineSearchCorridorWidthLabelRight;
     QSlider* cameraHeightSlider;
@@ -70,6 +72,9 @@ public:
     void global_camera_id_vartype_changed();
     void opencvCalibrationTypeChanged(int val);
     void opencvCalibrationTypeChangedVarType();
+
+private:
+  void setEnabledBasedOnModel();
 };
 
 #endif

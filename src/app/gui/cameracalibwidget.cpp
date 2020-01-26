@@ -60,7 +60,7 @@ CameraCalibrationWidget::CameraCalibrationWidget(CameraParameters &_cp) : camera
   connect(updateControlPointsButton, SIGNAL(clicked()), SLOT(is_clicked_update_control_points()));
   QPushButton* initialCalibrationButton = new QPushButton(tr("Do initial calibration"));
   connect(initialCalibrationButton, SIGNAL(clicked()), SLOT(is_clicked_initial()));
-  QPushButton* fullCalibrationButton = new QPushButton(tr("Do full calibration"));
+  fullCalibrationButton = new QPushButton(tr("Do full calibration"));
   connect(fullCalibrationButton, SIGNAL(clicked()), SLOT(is_clicked_full()));
   QPushButton* additionalPointsButton = new QPushButton(tr("Detect additional calibration points"));
   connect(additionalPointsButton, SIGNAL(clicked()), SLOT(edges_is_clicked()));
@@ -171,6 +171,7 @@ void CameraCalibrationWidget::is_clicked_full()
 void CameraCalibrationWidget::is_clicked_reset()
 {
   camera_parameters.reset();
+  camera_parameters.extrinsic_parameters->reset();
   set_slider_from_vars();
 }
 
@@ -215,8 +216,18 @@ void CameraCalibrationWidget::global_camera_id_vartype_changed() {
 
 void CameraCalibrationWidget::opencvCalibrationTypeChanged(int state) {
   camera_parameters.use_opencv_model->setBool(state == Qt::Checked);
+  setEnabledBasedOnModel();
 }
 
 void CameraCalibrationWidget::opencvCalibrationTypeChangedVarType() {
   openCvCalibrationCheckBox->setChecked(camera_parameters.use_opencv_model->getBool());
+  setEnabledBasedOnModel();
+}
+
+void CameraCalibrationWidget::setEnabledBasedOnModel() {
+  bool opencv_model = camera_parameters.use_opencv_model->getBool();
+  lineSearchCorridorWidthSlider->setEnabled(!opencv_model);
+  cameraHeightSlider->setEnabled(!opencv_model);
+  distortionSlider->setEnabled(!opencv_model);
+  fullCalibrationButton->setEnabled(!opencv_model);
 }
