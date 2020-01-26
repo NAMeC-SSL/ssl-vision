@@ -181,8 +181,15 @@ void PluginVisualize::DrawCameraCalibration(FrameData *data,
   // Principal point
   rgb ppoint_draw_color;
   ppoint_draw_color.set(255, 0, 0);
-  int x = camera_parameters.principal_point_x->getDouble();
-  int y = camera_parameters.principal_point_y->getDouble();
+  int x;
+  int y;
+  if (camera_parameters.use_opencv_model->getBool()) {
+    x = (int) camera_parameters.intrinsic_parameters->principal_point_x->getDouble();
+    y = (int) camera_parameters.intrinsic_parameters->principal_point_y->getDouble();
+  } else {
+    x = (int) camera_parameters.principal_point_x->getDouble();
+    y = (int) camera_parameters.principal_point_y->getDouble();
+  }
   vis_frame->data.drawFatLine(x - 15, y - 15, x + 15, y + 15,
                               ppoint_draw_color);
   vis_frame->data.drawFatLine(x + 15, y - 15, x - 15, y + 15,
