@@ -11,7 +11,7 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
 
   worker = new PluginCameraIntrinsicCalibrationWorker(_camera_params, widget);
 
-  scale_down_factor = new VarDouble("scale down factor", 0.4);
+  reduced_image_width = new VarDouble("reduced image width", 900.0);
   chessboard_capture_dt = new VarDouble("chessboard capture dT", 5.0);
 
   auto corner_sub_pixel_list = new VarList("corner sub pixel detection");
@@ -20,7 +20,7 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_epsilon);
 
   settings->addChild(worker->image_storage->image_dir);
-  settings->addChild(scale_down_factor);
+  settings->addChild(reduced_image_width);
   settings->addChild(chessboard_capture_dt);
   settings->addChild(corner_sub_pixel_list);
 
@@ -33,7 +33,7 @@ PluginCameraIntrinsicCalibration::~PluginCameraIntrinsicCalibration() {
   worker->deleteLater();
   delete widget;
   delete worker;
-  delete scale_down_factor;
+  delete reduced_image_width;
   delete chessboard_capture_dt;
 }
 
@@ -81,7 +81,7 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   }
 
   if (widget->patternDetectionEnabled() || widget->isCapturing()) {
-    worker->detectChessboard(greyscale_mat, scale_down_factor->getDouble(),
+    worker->detectChessboard(greyscale_mat, reduced_image_width->getDouble(),
                              chessboard);
   }
 
@@ -191,7 +191,7 @@ void PluginCameraIntrinsicCalibrationWorker::addChessboard(
 }
 
 void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
-    const cv::Mat &greyscale_mat, const double scale_factor,
+    const cv::Mat &greyscale_mat, const double max_image_width,
     Chessboard *chessboard) {
   chessboard->pattern_size.height =
       this->camera_params.additional_calibration_information->grid_height
@@ -202,6 +202,7 @@ void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
   chessboard->corners.clear();
 
   cv::Mat greyscale_mat_low_res;
+  double scale_factor = min(1.0, max_image_width / greyscale_mat.size().width);
   cv::resize(greyscale_mat, greyscale_mat_low_res, cv::Size(), scale_factor,
              scale_factor);
 
@@ -254,8 +255,7 @@ void PluginCameraIntrinsicCalibrationWorker::loadImages() {
   int n = 0;
   for (cv::Mat &mat : images) {
     Chessboard image_chessboard;
-    double scale_factor = 1.0;
-    detectChessboard(mat, scale_factor, &image_chessboard);
+    detectChessboard(mat, mat.size().width, &image_chessboard);
     if (image_chessboard.pattern_was_found) {
       addChessboard(&image_chessboard);
     } else {

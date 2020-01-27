@@ -104,7 +104,7 @@ private:
   CameraIntrinsicCalibrationWidget *widget;
   CameraParameters camera_params;
 
-  VarDouble *scale_down_factor;
+  VarDouble *reduced_image_width;
   VarDouble *chessboard_capture_dt;
 
   double lastChessboardCaptureFrame = 0.0;
