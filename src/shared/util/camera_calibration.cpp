@@ -53,40 +53,92 @@ CameraParameters::~CameraParameters() {
   delete additional_calibration_information;
 }
 
-void CameraParameters::toProtoBuffer(SSL_GeometryCameraCalibration &buffer) const {
-  buffer.set_focal_length(focal_length->getDouble());
-  buffer.set_principal_point_x(principal_point_x->getDouble());
-  buffer.set_principal_point_y(principal_point_y->getDouble());
-  buffer.set_distortion(distortion->getDouble());
-  buffer.set_q0(q0->getDouble());
-  buffer.set_q1(q1->getDouble());
-  buffer.set_q2(q2->getDouble());
-  buffer.set_q3(q3->getDouble());
-  buffer.set_tx(tx->getDouble());
-  buffer.set_ty(ty->getDouble());
-  buffer.set_tz(tz->getDouble());
-  buffer.set_camera_id(additional_calibration_information->camera_index->getInt());
+/**
+ * Convert the rotational vector from extrinsic parameters to a Quaternion.
+ * Taken from: https://gist.github.com/shubh-agrawal/76754b9bfb0f4143819dbd146d15d4c8
+ */
+void CameraParameters::quaternionFromOpenCVCalibration(double Q[]) const
+{
+  cv::Mat R;
+  cv::Rodrigues(extrinsic_parameters->rvec, R);
+  double trace = R.at<double>(0,0) + R.at<double>(1,1) + R.at<double>(2,2);
 
-  //--Set derived parameters:
-  //compute camera world coordinates:
-  Quaternion<double> q;
-  q.set(q0->getDouble(),q1->getDouble(),q2->getDouble(),q3->getDouble());
-  q.invert();
+  if (trace > 0.0)
+  {
+    double s = sqrt(trace + 1.0);
+    Q[3] = (s * 0.5);
+    s = 0.5 / s;
+    Q[0] = ((R.at<double>(2,1) - R.at<double>(1,2)) * s);
+    Q[1] = ((R.at<double>(0,2) - R.at<double>(2,0)) * s);
+    Q[2] = ((R.at<double>(1,0) - R.at<double>(0,1)) * s);
+  }
+  else
+  {
+    int i = R.at<double>(0,0) < R.at<double>(1,1) ? (R.at<double>(1,1) < R.at<double>(2,2) ? 2 : 1) : (R.at<double>(0,0) < R.at<double>(2,2) ? 2 : 0);
+    int j = (i + 1) % 3;
+    int k = (i + 2) % 3;
 
-  GVector::vector3d<double> v_in(tx->getDouble(),ty->getDouble(),tz->getDouble());
-  v_in=(-(v_in));
+    double s = sqrt(R.at<double>(i, i) - R.at<double>(j,j) - R.at<double>(k,k) + 1.0);
+    Q[i] = s * 0.5;
+    s = 0.5 / s;
 
-  GVector::vector3d<double> v_out = q.rotateVectorByQuaternion(v_in);
-  buffer.set_derived_camera_world_tx(v_out.x);
-  buffer.set_derived_camera_world_ty(v_out.y);
-  buffer.set_derived_camera_world_tz(v_out.z);
-
-  buffer.set_pixel_image_width(additional_calibration_information->imageWidth->getInt());
-  buffer.set_pixel_image_height(additional_calibration_information->imageHeight->getInt());
-
+    Q[3] = (R.at<double>(k,j) - R.at<double>(j,k)) * s;
+    Q[j] = (R.at<double>(j,i) + R.at<double>(i,j)) * s;
+    Q[k] = (R.at<double>(k,i) + R.at<double>(i,k)) * s;
+  }
 }
 
-GVector::vector3d< double > CameraParameters::getWorldLocation() {
+void CameraParameters::toProtoBuffer(SSL_GeometryCameraCalibration &buffer) const {
+  buffer.set_camera_id(additional_calibration_information->camera_index->getInt());
+  if (use_opencv_model->getBool()) {
+    buffer.set_focal_length((float) (intrinsic_parameters->focal_length_x->getDouble() + intrinsic_parameters->focal_length_y->getDouble()) / 2.0f);
+    buffer.set_principal_point_x((float) intrinsic_parameters->principal_point_x->getDouble());
+    buffer.set_principal_point_y((float) intrinsic_parameters->principal_point_y->getDouble());
+    buffer.set_distortion((float) intrinsic_parameters->dist_coeff_k1->getDouble());
+    double Q[4];
+    quaternionFromOpenCVCalibration(Q);
+    buffer.set_q0((float) Q[0]);
+    buffer.set_q1((float) Q[1]);
+    buffer.set_q2((float) Q[2]);
+    buffer.set_q3((float) Q[3]);
+    buffer.set_tx((float) extrinsic_parameters->tvec.at<double>(0, 0));
+    buffer.set_ty((float) extrinsic_parameters->tvec.at<double>(0, 1));
+    buffer.set_tz((float) extrinsic_parameters->tvec.at<double>(0, 2));
+  } else {
+    buffer.set_focal_length((float) focal_length->getDouble());
+    buffer.set_principal_point_x((float) principal_point_x->getDouble());
+    buffer.set_principal_point_y((float) principal_point_y->getDouble());
+    buffer.set_distortion((float) distortion->getDouble());
+    buffer.set_q0((float) q0->getDouble());
+    buffer.set_q1((float) q1->getDouble());
+    buffer.set_q2((float) q2->getDouble());
+    buffer.set_q3((float) q3->getDouble());
+    buffer.set_tx((float) tx->getDouble());
+    buffer.set_ty((float) ty->getDouble());
+    buffer.set_tz((float) tz->getDouble());
+  }
+
+  GVector::vector3d< double > world = getWorldLocation();
+  buffer.set_derived_camera_world_tx(world.x);
+  buffer.set_derived_camera_world_ty(world.y);
+  buffer.set_derived_camera_world_tz(world.z);
+  
+  buffer.set_pixel_image_width(additional_calibration_information->imageWidth->getInt());
+  buffer.set_pixel_image_height(additional_calibration_information->imageHeight->getInt());
+}
+
+GVector::vector3d< double > CameraParameters::getWorldLocation() const {
+  if (use_opencv_model->getBool()) {
+    cv::Mat R;
+    cv::Rodrigues(extrinsic_parameters->rvec, R);
+    R = R.t();
+    cv::Mat t = -R * extrinsic_parameters->tvec;
+    GVector::vector3d<double> v_out;
+    v_out.x = t.at<double>(0, 0);
+    v_out.y = t.at<double>(0, 1);
+    v_out.z = t.at<double>(0, 2);
+    return v_out;
+  }
   Quaternion<double> q;
   q.set(q0->getDouble(),q1->getDouble(),q2->getDouble(),q3->getDouble());
   q.invert();
