@@ -229,5 +229,4 @@ void CameraCalibrationWidget::setEnabledBasedOnModel() {
   lineSearchCorridorWidthSlider->setEnabled(!opencv_model);
   cameraHeightSlider->setEnabled(!opencv_model);
   distortionSlider->setEnabled(!opencv_model);
-  fullCalibrationButton->setEnabled(!opencv_model);
 }

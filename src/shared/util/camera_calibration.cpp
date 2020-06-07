@@ -434,8 +434,11 @@ void CameraParameters::do_calibration(int cal_type) {
   std::vector<GVector::vector3d<double> > p_f;
   std::vector<GVector::vector2d<double> > p_i;
 
-  AdditionalCalibrationInformation* aci = additional_calibration_information;
+  if(use_opencv_model->getBool() && cal_type & FULL_ESTIMATION) {
+    optimizeControlPoints();
+  }
 
+  AdditionalCalibrationInformation* aci = additional_calibration_information;
   for (int i = 0; i < AdditionalCalibrationInformation::kNumControlPoints;
       ++i) {
     p_i.push_back(GVector::vector2d<double>(
@@ -465,6 +468,104 @@ void CameraParameters::reset() {
   q1->resetToDefault();
   q2->resetToDefault();
   q3->resetToDefault();
+}
+
+bool intersection(cv::Vec4f l1, cv::Vec4f l2, cv::Point2f &r)
+{
+  cv::Point2f o1;
+  cv::Point2f x;
+  cv::Point2f d1;
+  cv::Point2f d2;
+
+  o1.x = l1[2];
+  o1.y = l1[3];
+  x.x = l2[2] - l1[2];
+  x.y = l2[3] - l1[3];
+  d1.x = l1[0];
+  d1.y = l1[1];
+  d2.x = l2[0];
+  d2.y = l2[1];
+
+  float cross = d1.x*d2.y - d1.y*d2.x;
+  if (abs(cross) < 1e-8)
+    return false;
+
+  double t1 = (x.x * d2.y - x.y * d2.x)/cross;
+  r = o1 + d1 * t1;
+  return true;
+}
+
+void CameraParameters::optimizeControlPoints() {
+  for (int i = 0; i < additional_calibration_information->kNumControlPoints; ++i) {
+    cv::Point2d fieldCorner;
+    fieldCorner.x = additional_calibration_information->control_point_field_xs[i]->getDouble();
+    fieldCorner.y = additional_calibration_information->control_point_field_ys[i]->getDouble();
+    cv::Point2d fieldCorner_img;
+    fieldCorner_img.x = additional_calibration_information->control_point_image_xs[i]->getDouble();
+    fieldCorner_img.y = additional_calibration_information->control_point_image_ys[i]->getDouble();
+
+    std::vector<CalibrationData> cornerCalibrationSegments;
+    for(auto calibrationData : calibrationSegments) {
+      if((abs(calibrationData.p1.x - fieldCorner.x) < 0.1
+          && abs(calibrationData.p1.y - fieldCorner.y) < 0.1)
+         ||
+         (abs(calibrationData.p2.x - fieldCorner.x) < 0.1
+          && abs(calibrationData.p2.y - fieldCorner.y) < 0.1)) {
+        cornerCalibrationSegments.push_back(calibrationData);
+      }
+    }
+
+    if(cornerCalibrationSegments.size() == 2) {
+      std::vector<cv::Vec4f> lines;
+      for(auto calibrationData : cornerCalibrationSegments) {
+        std::vector<cv::Point2d> points;
+        for(auto imgPt : calibrationData.imgPts) {
+          if(!imgPt.second) {
+            continue;
+          }
+          GVector::vector3d<double> pField;
+          image2field(pField, imgPt.first, 0.0);
+          cv::Point2d pField2d;
+          pField2d.x = pField.x;
+          pField2d.y = pField.y;
+          points.push_back(pField2d);
+        }
+        if(points.size() > 1) {
+          cv::Vec4f line;
+          cv::fitLine(points, line, cv::DIST_L2, 0, 0.01, 0.01);
+          lines.push_back(line);
+        }
+      }
+      if(lines.size() == 2) {
+        cv::Point2f intersect;
+        bool found = intersection(lines[0], lines[1], intersect);
+        if(!found) {
+          std::cerr << "Could not find an intersection between " << lines[0] << " and " << lines[1] << std::endl;
+          continue;
+        }
+        GVector::vector3d<double> p_field;
+        p_field.x = intersect.x;
+        p_field.y = intersect.y;
+        p_field.z = 0;
+        GVector::vector2d<double> intersect_img;
+        field2image(p_field, intersect_img);
+        cv::Point2f diff_field;
+        diff_field.x = fieldCorner.x - intersect.x;
+        diff_field.y = fieldCorner.y - intersect.y;
+        cv::Point2f diff_img;
+        diff_img.x = intersect_img.x - fieldCorner_img.x;
+        diff_img.y = intersect_img.y - fieldCorner_img.y;
+        double alpha = 0.8;
+        cv::Point2f new_img;
+        new_img.x = fieldCorner_img.x + diff_img.x * alpha;
+        new_img.y = fieldCorner_img.y + diff_img.y * alpha;
+        additional_calibration_information->control_point_image_xs[i]->setDouble(new_img.x);
+        additional_calibration_information->control_point_image_ys[i]->setDouble(new_img.y);
+      }
+    } else {
+      std::cerr << "Expected two calibration segments, but got " << cornerCalibrationSegments.size() << std::endl;
+    }
+  }
 }
 
 void CameraParameters::calibrateExtrinsicModel(
