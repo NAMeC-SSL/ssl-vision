@@ -11,13 +11,14 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
 
   worker = new PluginCameraIntrinsicCalibrationWorker(_camera_params, widget);
 
-  reduced_image_width = new VarDouble("reduced image width", 900.0);
-  chessboard_capture_dt = new VarDouble("chessboard capture dT", 5.0);
+  reduced_image_width = new VarDouble("reduced image width for chessboard detection", 900.0);
+  chessboard_capture_dt = new VarDouble("chessboard capture dT", 0.0);
 
   auto corner_sub_pixel_list = new VarList("corner sub pixel detection");
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_windows_size);
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_max_iterations);
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_epsilon);
+  corner_sub_pixel_list->addChild(worker->corner_diff_sq_threshold);
 
   settings->addChild(worker->image_storage->image_dir);
   settings->addChild(reduced_image_width);
@@ -122,6 +123,7 @@ PluginCameraIntrinsicCalibrationWorker::PluginCameraIntrinsicCalibrationWorker(
   corner_sub_pixel_windows_size = new VarInt("window size", 5, 1);
   corner_sub_pixel_max_iterations = new VarInt("max iterations", 30, 1);
   corner_sub_pixel_epsilon = new VarDouble("epsilon", 0.1, 1e-10);
+  corner_diff_sq_threshold = new VarDouble("corner sq_diff threshold", 50);
 
   image_storage = new ImageStorage(widget);
 
@@ -140,6 +142,7 @@ PluginCameraIntrinsicCalibrationWorker::
   delete corner_sub_pixel_windows_size;
   delete corner_sub_pixel_epsilon;
   delete corner_sub_pixel_max_iterations;
+  delete corner_diff_sq_threshold;
 }
 
 void PluginCameraIntrinsicCalibrationWorker::calibrate() {
@@ -168,13 +171,23 @@ void PluginCameraIntrinsicCalibrationWorker::calibrate() {
   calib_mutex.unlock();
 }
 
-void PluginCameraIntrinsicCalibrationWorker::addChessboard(
+bool PluginCameraIntrinsicCalibrationWorker::addChessboard(
     const Chessboard *chessboard) {
-  if (!chessboard->pattern_was_found) {
-    return;
-  }
-
   calib_mutex.lock();
+
+  // Check if there is a similar sample already
+  for(const auto& img_points : this->image_points) {
+    double sq_diff_sum = 0;
+    for(int i = 0; i < img_points.size(); i++) {
+      double diff = cv::norm(img_points[i] - chessboard->corners[i]);
+      sq_diff_sum += diff*diff;
+    }
+    double sq_diff = sq_diff_sum / img_points.size();
+    if(sq_diff < this->corner_diff_sq_threshold->getDouble()) {
+      calib_mutex.unlock();
+      return false;
+    }
+  }
 
   this->image_points.push_back(chessboard->corners);
 
@@ -188,6 +201,7 @@ void PluginCameraIntrinsicCalibrationWorker::addChessboard(
 
   this->widget->setNumDataPoints(this->object_points.size());
   calib_mutex.unlock();
+  return true;
 }
 
 void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
@@ -257,7 +271,12 @@ void PluginCameraIntrinsicCalibrationWorker::loadImages() {
     Chessboard image_chessboard;
     detectChessboard(mat, mat.size().width, &image_chessboard);
     if (image_chessboard.pattern_was_found) {
-      addChessboard(&image_chessboard);
+      bool added = addChessboard(&image_chessboard);
+      if(added) {
+        std::cout << "Added chessboard" <<std::endl;
+      } else {
+        std::cout << "Filtered chessboard" <<std::endl;
+      }
     } else {
       std::cout << "No chessboard detected" << std::endl;
     }

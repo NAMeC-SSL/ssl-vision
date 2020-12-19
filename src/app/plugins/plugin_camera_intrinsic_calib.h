@@ -59,13 +59,14 @@ public:
   VarInt *corner_sub_pixel_windows_size;
   VarInt *corner_sub_pixel_max_iterations;
   VarDouble *corner_sub_pixel_epsilon;
+  VarDouble *corner_diff_sq_threshold;
 
   void detectChessboard(const cv::Mat &greyscale_mat, double scale_factor,
                         Chessboard *chessboard);
   bool findPattern(const cv::Mat &image, const cv::Size &pattern_size,
                    vector<cv::Point2f> &corners);
 
-  void addChessboard(const Chessboard *chessboard);
+  bool addChessboard(const Chessboard *chessboard);
 
   void clearData();
 
