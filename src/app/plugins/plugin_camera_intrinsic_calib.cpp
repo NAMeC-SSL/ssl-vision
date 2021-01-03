@@ -12,7 +12,6 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
 
   worker = new PluginCameraIntrinsicCalibrationWorker(_camera_params, widget);
 
-  reduced_image_width = new VarDouble("reduced image width for chessboard detection", 900.0);
   chessboard_capture_dt = new VarDouble("chessboard capture dT", 0.0);
 
   auto corner_sub_pixel_list = new VarList("corner sub pixel detection");
@@ -21,7 +20,7 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_epsilon);
 
   settings->addChild(worker->image_storage->image_dir);
-  settings->addChild(reduced_image_width);
+  settings->addChild(worker->reduced_image_width);
   settings->addChild(chessboard_capture_dt);
   settings->addChild(worker->corner_diff_sq_threshold);
   settings->addChild(corner_sub_pixel_list);
@@ -35,7 +34,6 @@ PluginCameraIntrinsicCalibration::~PluginCameraIntrinsicCalibration() {
   worker->deleteLater();
   delete widget;
   delete worker;
-  delete reduced_image_width;
   delete chessboard_capture_dt;
 }
 
@@ -83,8 +81,7 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   }
 
   if (widget->patternDetectionEnabled() || widget->isCapturing()) {
-    worker->detectChessboard(greyscale_mat, reduced_image_width->getDouble(),
-                             chessboard);
+    worker->detectChessboard(greyscale_mat, chessboard);
   }
 
   if (widget->isCapturing() && chessboard->pattern_was_found) {
@@ -126,6 +123,7 @@ PluginCameraIntrinsicCalibrationWorker::PluginCameraIntrinsicCalibrationWorker(
   corner_sub_pixel_max_iterations = new VarInt("max iterations", 30, 1);
   corner_sub_pixel_epsilon = new VarDouble("epsilon", 0.1, 1e-10);
   corner_diff_sq_threshold = new VarDouble("corner sq_diff threshold", 50);
+  reduced_image_width = new VarDouble("reduced image width for chessboard detection", 900.0);
 
   image_storage = new ImageStorage(widget);
 
@@ -145,6 +143,7 @@ PluginCameraIntrinsicCalibrationWorker::
   delete corner_sub_pixel_epsilon;
   delete corner_sub_pixel_max_iterations;
   delete corner_diff_sq_threshold;
+  delete reduced_image_width;
 }
 
 void PluginCameraIntrinsicCalibrationWorker::calibrate() {
@@ -212,8 +211,7 @@ bool PluginCameraIntrinsicCalibrationWorker::addChessboard(
 }
 
 void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
-    const cv::Mat &greyscale_mat, const double max_image_width,
-    Chessboard *chessboard) const {
+    const cv::Mat &greyscale_mat, Chessboard *chessboard) const {
   chessboard->pattern_size.height =
       this->camera_params.additional_calibration_information->grid_height
           ->getDouble();
@@ -223,7 +221,7 @@ void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
   chessboard->corners.clear();
 
   cv::Mat greyscale_mat_low_res;
-  double scale_factor = min(1.0, max_image_width / greyscale_mat.size().width);
+  double scale_factor = min(1.0, reduced_image_width->getDouble() / greyscale_mat.size().width);
   cv::resize(greyscale_mat, greyscale_mat_low_res, cv::Size(), scale_factor,
              scale_factor);
 
@@ -276,7 +274,7 @@ void PluginCameraIntrinsicCalibrationWorker::loadImages() {
   int n = 0;
   for (cv::Mat &mat : images) {
     Chessboard image_chessboard;
-    detectChessboard(mat, mat.size().width, &image_chessboard);
+    detectChessboard(mat, &image_chessboard);
     if (image_chessboard.pattern_was_found) {
       bool added = addChessboard(&image_chessboard);
       if(added) {

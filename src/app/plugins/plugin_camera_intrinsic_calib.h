@@ -60,8 +60,9 @@ public:
   VarInt *corner_sub_pixel_max_iterations;
   VarDouble *corner_sub_pixel_epsilon;
   VarDouble *corner_diff_sq_threshold;
+  VarDouble *reduced_image_width;
 
-  void detectChessboard(const cv::Mat &greyscale_mat, double scale_factor,
+  void detectChessboard(const cv::Mat &greyscale_mat,
                         Chessboard *chessboard) const;
   bool findPattern(const cv::Mat &image, const cv::Size &pattern_size,
                    vector<cv::Point2f> &corners) const;
@@ -105,7 +106,6 @@ private:
   CameraIntrinsicCalibrationWidget *widget;
   CameraParameters camera_params;
 
-  VarDouble *reduced_image_width;
   VarDouble *chessboard_capture_dt;
 
   double lastChessboardCaptureFrame = 0.0;
