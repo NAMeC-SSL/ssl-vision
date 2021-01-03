@@ -19,11 +19,11 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_windows_size);
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_max_iterations);
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_epsilon);
-  corner_sub_pixel_list->addChild(worker->corner_diff_sq_threshold);
 
   settings->addChild(worker->image_storage->image_dir);
   settings->addChild(reduced_image_width);
   settings->addChild(chessboard_capture_dt);
+  settings->addChild(worker->corner_diff_sq_threshold);
   settings->addChild(corner_sub_pixel_list);
 
   connect(this, SIGNAL(startLoadImages()), worker, SLOT(loadImages()));
