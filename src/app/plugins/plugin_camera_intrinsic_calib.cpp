@@ -95,12 +95,14 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     }
     lastChessboardCaptureFrame = data->video.getTime();
 
-    worker->image_storage->image_save_mutex.lock();
-    worker->image_storage->images_to_save.push(greyscale_mat);
-    worker->image_storage->image_save_mutex.unlock();
-    emit startSaveImages();
+    bool added = worker->addChessboard(chessboard);
 
-    worker->addChessboard(chessboard);
+    if (added) {
+      worker->image_storage->image_save_mutex.lock();
+      worker->image_storage->images_to_save.push(greyscale_mat.clone());
+      worker->image_storage->image_save_mutex.unlock();
+      emit startSaveImages();
+    }
   }
 
   if(widget->should_calibrate) {
@@ -109,6 +111,7 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
   }
 
   if (widget->should_clear_data) {
+    widget->should_clear_data = false;
     worker->clearData();
   }
 
@@ -293,7 +296,6 @@ void PluginCameraIntrinsicCalibrationWorker::loadImages() {
 
 void PluginCameraIntrinsicCalibrationWorker::clearData() {
   calib_mutex.lock();
-  widget->should_clear_data = false;
 
   image_points.clear();
   object_points.clear();
