@@ -28,12 +28,12 @@ public:
   CameraIntrinsicCalibrationWidget *widget;
 
   std::mutex image_save_mutex;
-  std::queue<RawImage> images_to_save;
+  std::queue<cv::Mat> images_to_save;
 
   VarString *image_dir;
 
-  void saveImage(RawImage &image);
-  void readImages(std::vector<cv::Mat> &images);
+  void saveImage(cv::Mat& image) const;
+  void readImages(std::vector<cv::Mat> &images) const;
 
 public slots:
   void saveImages();
@@ -62,9 +62,9 @@ public:
   VarDouble *corner_diff_sq_threshold;
 
   void detectChessboard(const cv::Mat &greyscale_mat, double scale_factor,
-                        Chessboard *chessboard);
+                        Chessboard *chessboard) const;
   bool findPattern(const cv::Mat &image, const cv::Size &pattern_size,
-                   vector<cv::Point2f> &corners);
+                   vector<cv::Point2f> &corners) const;
 
   bool addChessboard(const Chessboard *chessboard);
 

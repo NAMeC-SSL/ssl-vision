@@ -94,10 +94,8 @@ PluginCameraIntrinsicCalibration::process(FrameData *data,
     }
     lastChessboardCaptureFrame = data->video.getTime();
 
-    RawImage image_copy;
-    image_copy.deepCopyFromRawImage(data->video, true);
     worker->image_storage->image_save_mutex.lock();
-    worker->image_storage->images_to_save.push(image_copy);
+    worker->image_storage->images_to_save.push(greyscale_mat);
     worker->image_storage->image_save_mutex.unlock();
     emit startSaveImages();
 
@@ -206,7 +204,7 @@ bool PluginCameraIntrinsicCalibrationWorker::addChessboard(
 
 void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
     const cv::Mat &greyscale_mat, const double max_image_width,
-    Chessboard *chessboard) {
+    Chessboard *chessboard) const {
   chessboard->pattern_size.height =
       this->camera_params.additional_calibration_information->grid_height
           ->getDouble();
@@ -244,7 +242,7 @@ void PluginCameraIntrinsicCalibrationWorker::detectChessboard(
 
 bool PluginCameraIntrinsicCalibrationWorker::findPattern(
     const cv::Mat &image, const cv::Size &pattern_size,
-    vector<cv::Point2f> &corners) {
+    vector<cv::Point2f> &corners) const {
   using Pattern = CameraIntrinsicCalibrationWidget::Pattern;
   int cb_flags = cv::CALIB_CB_ADAPTIVE_THRESH + cv::CALIB_CB_FAST_CHECK +
                  cv::CALIB_CB_NORMALIZE_IMAGE;
@@ -323,7 +321,7 @@ void ImageStorage::saveImages() {
   if (images_to_save.empty()) {
     image_save_mutex.unlock();
   } else {
-    RawImage image = images_to_save.front();
+    cv::Mat image = images_to_save.front();
     images_to_save.pop();
     image_save_mutex.unlock();
     saveImage(image);
@@ -331,28 +329,15 @@ void ImageStorage::saveImages() {
   }
 }
 
-void ImageStorage::saveImage(RawImage &image) {
-  rgbImage output;
-  ColorFormat fmt = image.getColorFormat();
-  output.allocate(image.getWidth(), image.getHeight());
-  if (fmt == COLOR_YUV422_UYVY) {
-    Conversions::uyvy2rgb(image.getData(), output.getData(), image.getWidth(),
-                          image.getHeight());
-  } else if (fmt == COLOR_RGB8) {
-    memcpy(output.getData(), image.getData(), image.getNumBytes());
-  } else {
-    output.allocate(0, 0);
-  }
-  if (output.getNumBytes() > 0) {
-    long t_now = (long)(GetTimeSec() * 1e9);
-    QString num = QString::number(t_now);
-    QString filename =
-        QString(image_dir->getString().c_str()) + "/" + num + ".png";
-    output.save(filename.toStdString());
-  }
+void ImageStorage::saveImage(cv::Mat& image) const {
+  long t_now = (long)(GetTimeSec() * 1e9);
+  QString num = QString::number(t_now);
+  QString filename =
+      QString(image_dir->getString().c_str()) + "/" + num + ".png";
+  cv::imwrite(filename.toStdString(), image);
 }
 
-void ImageStorage::readImages(std::vector<cv::Mat> &images) {
+void ImageStorage::readImages(std::vector<cv::Mat> &images) const {
   DIR *dp;
   if ((dp = opendir(image_dir->getString().c_str())) == nullptr) {
     std::cerr << "Failed to open directory: " << image_dir->getString()
