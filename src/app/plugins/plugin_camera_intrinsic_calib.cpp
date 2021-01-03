@@ -1,6 +1,7 @@
 #include "plugin_camera_intrinsic_calib.h"
 #include <dirent.h>
 #include <iostream>
+#include <chrono>
 
 PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
     FrameBuffer *buffer, CameraParameters &_camera_params)
@@ -155,11 +156,14 @@ void PluginCameraIntrinsicCalibrationWorker::calibrate() {
   double rms = -1;
   try {
     std::cout << "Start calibrating with " << image_points.size() << " samples" << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
     rms = cv::calibrateCamera(object_points, image_points, imageSize,
                               camera_params.intrinsic_parameters->camera_mat,
                               camera_params.intrinsic_parameters->dist_coeffs,
                               rvecs, tvecs);
-    std::cout << "Calibration finished with a RMS of " << rms << std::endl;
+    auto finish = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = finish - start;
+    std::cout << "Calibration finished with RMS=" << rms << " in " << elapsed.count() << "s" << std::endl;
     camera_params.intrinsic_parameters->updateConfigValues();
   } catch (cv::Exception &e) {
     std::cerr << "calibration failed: " << e.err << std::endl;
@@ -178,7 +182,7 @@ bool PluginCameraIntrinsicCalibrationWorker::addChessboard(
   // Check if there is a similar sample already
   for(const auto& img_points : this->image_points) {
     double sq_diff_sum = 0;
-    for(int i = 0; i < img_points.size(); i++) {
+    for(auto i = 0; i < img_points.size(); i++) {
       double diff = cv::norm(img_points[i] - chessboard->corners[i]);
       sq_diff_sum += diff*diff;
     }
