@@ -154,10 +154,12 @@ void PluginCameraIntrinsicCalibrationWorker::calibrate() {
 
   double rms = -1;
   try {
+    std::cout << "Start calibrating with " << image_points.size() << " samples" << std::endl;
     rms = cv::calibrateCamera(object_points, image_points, imageSize,
                               camera_params.intrinsic_parameters->camera_mat,
                               camera_params.intrinsic_parameters->dist_coeffs,
                               rvecs, tvecs);
+    std::cout << "Calibration finished with a RMS of " << rms << std::endl;
     camera_params.intrinsic_parameters->updateConfigValues();
   } catch (cv::Exception &e) {
     std::cerr << "calibration failed: " << e.err << std::endl;
