@@ -170,8 +170,11 @@ void CameraCalibrationWidget::is_clicked_full()
 
 void CameraCalibrationWidget::is_clicked_reset()
 {
-  camera_parameters.reset();
-  camera_parameters.extrinsic_parameters->reset();
+  if(camera_parameters.use_opencv_model->getBool()) {
+    camera_parameters.extrinsic_parameters->reset();
+  } else {
+    camera_parameters.reset();
+  }
   set_slider_from_vars();
 }
 
@@ -182,8 +185,11 @@ void CameraCalibrationWidget::edges_is_clicked()
 
 void CameraCalibrationWidget::set_slider_from_vars()
 {
-  cameraHeightSlider->setValue((int)camera_parameters.tz->getDouble());
-  distortionSlider->setValue((int)(camera_parameters.distortion->getDouble()*100));
+  if(!camera_parameters.use_opencv_model->getBool()) {
+    cameraHeightSlider->setValue((int)camera_parameters.tz->getDouble());
+    distortionSlider->setValue(
+        (int)(camera_parameters.distortion->getDouble() * 100));
+  }
   lineSearchCorridorWidthSlider->setValue((int)(camera_parameters.additional_calibration_information->line_search_corridor_width->getDouble()));
 }
 
@@ -226,7 +232,6 @@ void CameraCalibrationWidget::opencvCalibrationTypeChangedVarType() {
 
 void CameraCalibrationWidget::setEnabledBasedOnModel() {
   bool opencv_model = camera_parameters.use_opencv_model->getBool();
-  lineSearchCorridorWidthSlider->setEnabled(!opencv_model);
   cameraHeightSlider->setEnabled(!opencv_model);
   distortionSlider->setEnabled(!opencv_model);
 }
