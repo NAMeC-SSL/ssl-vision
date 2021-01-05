@@ -184,7 +184,7 @@ bool PluginCameraIntrinsicCalibrationWorker::addChessboard(
   // Check if there is a similar sample already
   for(const auto& img_points : this->image_points) {
     double sq_diff_sum = 0;
-    for(auto i = 0; i < img_points.size(); i++) {
+    for(uint i = 0; i < img_points.size(); i++) {
       double diff = cv::norm(img_points[i] - chessboard->corners[i]);
       sq_diff_sum += diff*diff;
     }

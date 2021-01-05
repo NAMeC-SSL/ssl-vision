@@ -76,7 +76,6 @@ public:
   CameraIntrinsicParameters* intrinsic_parameters;
   CameraExtrinsicParameters* extrinsic_parameters;
 
-  void optimizeControlPoints();
   void quaternionFromOpenCVCalibration(double Q[]) const;
   GVector::vector3d<double> getWorldLocation() const;
   void field2image(const GVector::vector3d<double> &p_f, GVector::vector2d<double> &p_i) const;
