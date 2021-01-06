@@ -446,7 +446,7 @@ void CameraParameters::do_calibration(int cal_type) {
   }
 
   if(use_opencv_model->getBool()) {
-    calibrateExtrinsicModel(p_f, p_i);
+    calibrateExtrinsicModel(p_f, p_i, cal_type);
   } else {
     calibrate(p_f, p_i, cal_type);
   }
@@ -468,37 +468,45 @@ void CameraParameters::reset() {
 
 void CameraParameters::calibrateExtrinsicModel(
     std::vector<GVector::vector3d<double>> &p_f,
-    std::vector<GVector::vector2d<double>> &p_i) {
+    std::vector<GVector::vector2d<double>> &p_i,
+    int cal_type) {
 
   std::vector<cv::Point3d> fieldPoints;
   std::vector<cv::Point2d> imagePoints;
 
-  // collect field to image mapping points from calibration segments
-  for (const auto &calibrationData : calibrationSegments) {
-    if (!calibrationData.straightLine) {
-      continue;
-    }
-
-    for (uint i = 0; i < calibrationData.imgPts.size(); i++) {
-      auto imgPt = calibrationData.imgPts[i];
-      bool detected = imgPt.second;
-      if (!detected) {
+  if (cal_type & FULL_ESTIMATION) {
+    // collect field to image mapping points from calibration segments
+    for (const auto &calibrationData : calibrationSegments) {
+      if (!calibrationData.straightLine) {
         continue;
       }
-      auto p_img = imgPt.first;
-      auto alpha = calibrationData.alphas[i];
-      auto p_field = alpha * calibrationData.p1 + (1 - alpha) * calibrationData.p2;
-      fieldPoints.emplace_back(p_field.x, p_field.y, p_field.z);
-      imagePoints.emplace_back(p_img.x, p_img.y);
+
+      for (uint i = 0; i < calibrationData.imgPts.size(); i++) {
+        auto imgPt = calibrationData.imgPts[i];
+        bool detected = imgPt.second;
+        if (!detected) {
+          continue;
+        }
+        auto p_img = imgPt.first;
+        auto alpha = calibrationData.alphas[i];
+        auto lineStart = calibrationData.p1;
+        auto lineEnd = calibrationData.p2;
+        auto p_field = alpha * lineStart + (1 - alpha) * lineEnd;
+        fieldPoints.emplace_back(p_field.x, p_field.y, p_field.z);
+        imagePoints.emplace_back(p_img.x, p_img.y);
+      }
+    }
+  } else {
+    for (uint i = 0; i < p_f.size(); i++) {
+      fieldPoints.emplace_back(p_f[i].x, p_f[i].y, p_f[i].z);
+      imagePoints.emplace_back(p_i[i].x, p_i[i].y);
     }
   }
 
   // fall back to control points if there are not enough calibration points
   if (fieldPoints.size() < 4) {
-    for (uint i = 0; i < p_f.size(); i++) {
-      fieldPoints.emplace_back(p_f[i].x, p_f[i].y, p_f[i].z);
-      imagePoints.emplace_back(p_i[i].x, p_i[i].y);
-    }
+    std::cerr << "Not enough calibration points" << std::endl;
+    return;
   }
 
   // solve
