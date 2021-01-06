@@ -466,6 +466,36 @@ void CameraParameters::reset() {
   q3->resetToDefault();
 }
 
+bool intersection(cv::Vec4f l1, cv::Vec4f l2, cv::Point2f &r)
+{
+  cv::Point2f o1;
+  cv::Point2f x;
+  cv::Point2f d1;
+  cv::Point2f d2;
+
+  o1.x = l1[2];
+  o1.y = l1[3];
+  x.x = l2[2] - l1[2];
+  x.y = l2[3] - l1[3];
+  d1.x = l1[0];
+  d1.y = l1[1];
+  d2.x = l2[0];
+  d2.y = l2[1];
+
+  float cross = d1.x*d2.y - d1.y*d2.x;
+  if (abs(cross) < 1e-8)
+    return false;
+
+  double t1 = (x.x * d2.y - x.y * d2.x)/cross;
+  r = o1 + d1 * t1;
+  return true;
+}
+
+bool contains(const cv::Rect& rect, const cv::Point2d& pt, double margin) {
+  return rect.x - margin <= pt.x && pt.x < rect.x + rect.width + margin * 2
+         && rect.y - margin <= pt.y && pt.y < rect.y + rect.height + margin * 2;
+}
+
 void CameraParameters::calibrateExtrinsicModel(
     std::vector<GVector::vector3d<double>> &p_f,
     std::vector<GVector::vector2d<double>> &p_i,
@@ -475,37 +505,108 @@ void CameraParameters::calibrateExtrinsicModel(
   std::vector<cv::Point2d> imagePoints;
 
   if (cal_type & FULL_ESTIMATION) {
-    // collect field to image mapping points from calibration segments
+    // fitted lines through undistorted calibration points
+    std::vector<cv::Vec4f> lines_img_undistorted;
+    // corresponding lines in field coordinates
+    std::vector<cv::Vec4f> lines_field;
+    // corresponding line starting points
+    std::vector<cv::Point2d> lines_start;
+    // corresponding line ending points
+    std::vector<cv::Point2d> lines_end;
+
     for (const auto &calibrationData : calibrationSegments) {
       if (!calibrationData.straightLine) {
+        // only straight lines are supported
         continue;
       }
 
-      for (uint i = 0; i < calibrationData.imgPts.size(); i++) {
-        auto imgPt = calibrationData.imgPts[i];
+      // collect all valid image points
+      std::vector<cv::Point2d> points_img;
+      for (auto imgPt : calibrationData.imgPts) {
         bool detected = imgPt.second;
-        if (!detected) {
-          continue;
+        if (detected) {
+          auto p_img = imgPt.first;
+          points_img.emplace_back(p_img.x, p_img.y);
         }
-        auto p_img = imgPt.first;
-        auto alpha = calibrationData.alphas[i];
-        auto lineStart = calibrationData.p1;
-        auto lineEnd = calibrationData.p2;
-        auto p_field = alpha * lineStart + (1 - alpha) * lineEnd;
-        fieldPoints.emplace_back(p_field.x, p_field.y, p_field.z);
-        imagePoints.emplace_back(p_img.x, p_img.y);
+      }
+
+      // undistort image points (without considering extrensic calibration)
+      std::vector<cv::Point2d> points_undistorted;
+      cv::undistortPoints(points_img,
+          points_undistorted,
+          intrinsic_parameters->camera_mat,
+          intrinsic_parameters->dist_coeffs);
+
+      // fit a line through the detected calibration image points
+      cv::Vec4f line_img;
+      cv::fitLine(points_undistorted, line_img, cv::DIST_L2, 0, 0.01, 0.01);
+      lines_img_undistorted.push_back(line_img);
+      // create a corresponding line in world coordinates
+      auto dir = (calibrationData.p2 - calibrationData.p1).norm();
+      cv::Vec4f line_field(dir.x, dir.y, calibrationData.p1.x, calibrationData.p1.y);
+      lines_field.push_back(line_field);
+      // add corresponding start and end points
+      lines_start.emplace_back(
+        calibrationData.p1.x,
+        calibrationData.p1.y);
+      lines_end.emplace_back(
+        calibrationData.p2.x,
+        calibrationData.p2.y);
+    }
+
+    std::vector<cv::Point3d> points_intersection_img_undistorted;
+    std::vector<cv::Point3d> points_intersection_field;
+    for (uint i = 0; i < lines_field.size(); i++) {
+      for (uint j = i+1; j < lines_field.size(); j++) {
+        auto line_img1 = lines_img_undistorted[i];
+        auto line_img2 = lines_img_undistorted[j];
+        auto line_field1 = lines_field[i];
+        auto line_field2 = lines_field[j];
+
+        cv::Point2f p_intersection_img_undistorted;
+        cv::Point2f p_intersection_field;
+        bool found_img = intersection(line_img1, line_img2, p_intersection_img_undistorted);
+        bool found_field = intersection(line_field1, line_field2, p_intersection_field);
+
+        cv::Rect2d rect_line1(lines_start[i], lines_end[i]);
+        cv::Rect2d rect_line2(lines_start[j], lines_end[j]);
+        if(found_img && found_field
+            // check if intersection is on line segment
+            && contains(rect_line1, p_intersection_field, 10)
+            && contains(rect_line2, p_intersection_field, 10)) {
+          cv::Point3d p_intersection_img_undistorted_3d(
+              p_intersection_img_undistorted.x,
+              p_intersection_img_undistorted.y, 0);
+          points_intersection_img_undistorted.push_back(
+              p_intersection_img_undistorted_3d);
+          cv::Point3d p_intersection_field_3d(
+              p_intersection_field.x,
+              p_intersection_field.y, 0);
+          points_intersection_field.push_back(p_intersection_field_3d);
+        }
       }
     }
+    if (!points_intersection_img_undistorted.empty()) {
+      std::vector<double> zero(3);
+      std::vector<cv::Point2d> points_img_intersect;
+      // project undistorted image points back to image (distort)
+      cv::projectPoints(points_intersection_img_undistorted, zero, zero,
+                        intrinsic_parameters->camera_mat,
+                        intrinsic_parameters->dist_coeffs,
+                        points_img_intersect);
+      fieldPoints = points_intersection_field;
+      imagePoints = points_img_intersect;
+    }
   } else {
+    // Use calibration points
     for (uint i = 0; i < p_f.size(); i++) {
       fieldPoints.emplace_back(p_f[i].x, p_f[i].y, p_f[i].z);
       imagePoints.emplace_back(p_i[i].x, p_i[i].y);
     }
   }
 
-  // fall back to control points if there are not enough calibration points
   if (fieldPoints.size() < 4) {
-    std::cerr << "Not enough calibration points" << std::endl;
+    std::cerr << "Not enough calibration points: " << fieldPoints.size() << std::endl;
     return;
   }
 
