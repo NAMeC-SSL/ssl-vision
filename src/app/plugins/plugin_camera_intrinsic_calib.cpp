@@ -12,7 +12,7 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
 
   worker = new PluginCameraIntrinsicCalibrationWorker(_camera_params, widget);
 
-  chessboard_capture_dt = new VarDouble("chessboard capture dT", 0.0);
+  chessboard_capture_dt = new VarDouble("chessboard capture dT", 0.2);
 
   auto corner_sub_pixel_list = new VarList("corner sub pixel detection");
   corner_sub_pixel_list->addChild(worker->corner_sub_pixel_windows_size);
@@ -24,6 +24,9 @@ PluginCameraIntrinsicCalibration::PluginCameraIntrinsicCalibration(
   settings->addChild(chessboard_capture_dt);
   settings->addChild(worker->corner_diff_sq_threshold);
   settings->addChild(corner_sub_pixel_list);
+  settings->addChild(worker->fixFocalLength);
+  settings->addChild(worker->fixPrinciplePoint);
+  settings->addChild(worker->initializeCameraMatrix);
 
   connect(this, SIGNAL(startLoadImages()), worker, SLOT(loadImages()));
   connect(this, SIGNAL(startCalibration()), worker, SLOT(calibrate()));
@@ -122,8 +125,11 @@ PluginCameraIntrinsicCalibrationWorker::PluginCameraIntrinsicCalibrationWorker(
   corner_sub_pixel_windows_size = new VarInt("window size", 5, 1);
   corner_sub_pixel_max_iterations = new VarInt("max iterations", 30, 1);
   corner_sub_pixel_epsilon = new VarDouble("epsilon", 0.1, 1e-10);
-  corner_diff_sq_threshold = new VarDouble("corner sq_diff threshold", 50);
+  corner_diff_sq_threshold = new VarDouble("corner sq_diff threshold", 500);
   reduced_image_width = new VarDouble("reduced image width for chessboard detection", 900.0);
+  fixFocalLength = new VarBool("Fix focal length", true);
+  fixPrinciplePoint = new VarBool("Fix principle point", true);
+  initializeCameraMatrix = new VarBool("Initialize camera matrix", true);
 
   image_storage = new ImageStorage(widget);
 
@@ -144,6 +150,9 @@ PluginCameraIntrinsicCalibrationWorker::
   delete corner_sub_pixel_max_iterations;
   delete corner_diff_sq_threshold;
   delete reduced_image_width;
+  delete fixFocalLength;
+  delete fixPrinciplePoint;
+  delete initializeCameraMatrix;
 }
 
 void PluginCameraIntrinsicCalibrationWorker::calibrate() {
@@ -155,22 +164,35 @@ void PluginCameraIntrinsicCalibrationWorker::calibrate() {
   std::vector<cv::Mat> rvecs;
   std::vector<cv::Mat> tvecs;
 
-  double rms = -1;
+  int flags = 0;
+  if (fixFocalLength->getBool()) {
+    flags |= cv::CALIB_FIX_FOCAL_LENGTH;
+  }
+  if (fixPrinciplePoint->getBool()) {
+    flags |= cv::CALIB_FIX_PRINCIPAL_POINT;
+  }
+  if (!initializeCameraMatrix->getBool()) {
+    flags |= cv::CALIB_USE_INTRINSIC_GUESS;
+  }
+  
   try {
     std::cout << "Start calibrating with " << image_points.size() << " samples" << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
-    rms = cv::calibrateCamera(object_points, image_points, imageSize,
+
+    double rms = cv::calibrateCamera(object_points, image_points, imageSize,
                               camera_params.intrinsic_parameters->camera_mat,
                               camera_params.intrinsic_parameters->dist_coeffs,
-                              rvecs, tvecs);
+                              rvecs, tvecs, flags);
+
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << "Calibration finished with RMS=" << rms << " in " << elapsed.count() << "s" << std::endl;
     camera_params.intrinsic_parameters->updateConfigValues();
+    this->widget->setRms(rms);
   } catch (cv::Exception &e) {
     std::cerr << "calibration failed: " << e.err << std::endl;
+    this->widget->setRms(-1);
   }
-  this->widget->setRms(rms);
 
   widget->calibrating = false;
   widget->updateConfigurationEnabled();

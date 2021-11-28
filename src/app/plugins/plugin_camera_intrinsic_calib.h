@@ -61,6 +61,9 @@ public:
   VarDouble *corner_sub_pixel_epsilon;
   VarDouble *corner_diff_sq_threshold;
   VarDouble *reduced_image_width;
+  VarBool *fixFocalLength;
+  VarBool *fixPrinciplePoint;
+  VarBool *initializeCameraMatrix;
 
   void detectChessboard(const cv::Mat &greyscale_mat,
                         Chessboard *chessboard) const;

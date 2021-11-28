@@ -4,8 +4,8 @@
 CameraIntrinsicParameters::CameraIntrinsicParameters() {
   settings = new VarList("Intrinsic Parameters");
 
-  focal_length_x = new VarDouble("focal_length_x", 0.0);
-  focal_length_y = new VarDouble("focal_length_y", 0.0);
+  focal_length_x = new VarDouble("focal_length_x", 1.0);
+  focal_length_y = new VarDouble("focal_length_y", 1.0);
   principal_point_x = new VarDouble("principal_point_x", 0.0);
   principal_point_y = new VarDouble("principal_point_y", 0.0);
 
@@ -47,6 +47,8 @@ CameraIntrinsicParameters::CameraIntrinsicParameters() {
 
   camera_mat = cv::Mat::eye(3, 3, CV_64FC1);
   dist_coeffs = cv::Mat(5, 1, CV_64FC1, cv::Scalar(0));
+  updateCameraMat();
+  updateDistCoeffs();
 }
 
 CameraIntrinsicParameters::~CameraIntrinsicParameters() {
