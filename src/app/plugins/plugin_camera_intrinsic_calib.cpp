@@ -130,7 +130,7 @@ PluginCameraIntrinsicCalibrationWorker::PluginCameraIntrinsicCalibrationWorker(C
   fixK1 = new VarBool("Fix k1", false);
   fixK2 = new VarBool("Fix k2", false);
   fixK3 = new VarBool("Fix k3", false);
-  useIntrinsicGuess = new VarBool("Use intrinsic guess", true);
+  useIntrinsicGuess = new VarBool("Use intrinsic guess", false);
 
   image_storage = new ImageStorage(widget);
 
