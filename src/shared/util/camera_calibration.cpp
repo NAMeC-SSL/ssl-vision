@@ -607,7 +607,9 @@ void CameraParameters::calibrateExtrinsicModel(
 
   std::vector<std::vector<cv::Point3f>> object_points(1);
   std::vector<std::vector<cv::Point2f>> image_points(1);
-  cv::Size imageSize(0, 0); // should not be required
+  cv::Size imageSize(
+      additional_calibration_information->imageWidth->getInt(),
+      additional_calibration_information->imageHeight->getInt());
   std::vector<cv::Mat> rvecs;
   std::vector<cv::Mat> tvecs;
 
