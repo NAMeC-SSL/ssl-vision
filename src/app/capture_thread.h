@@ -56,6 +56,11 @@
 #include "capture_spinnaker.h"
 #endif
 
+#ifdef UEYE
+#include "capture_ueye.h"
+#endif
+
+
 /*!
   \class   CaptureThread
   \brief   A thread for capturing and processing video data
@@ -79,6 +84,7 @@ protected:
   CaptureInterface * captureGenerator = nullptr;
   CaptureInterface * captureBasler = nullptr;
   CaptureInterface * captureSpinnaker = nullptr;
+  CaptureInterface * captureUeye = nullptr;
   CaptureInterface * captureSplitter = nullptr;
   AffinityManager * affinity;
   FrameBuffer * rb;
@@ -94,6 +100,7 @@ protected:
   VarList * fromfile = nullptr;
   VarList * basler = nullptr;
   VarList * spinnaker = nullptr;
+  VarList * ueye = nullptr;
   VarList * splitter = nullptr;
   VarList * control;
   VarTrigger * c_start;

@@ -7,6 +7,7 @@ set(USE_PYLON FALSE CACHE BOOL "Compile with pylon driver (Basler cameras)")
 set(USE_FLYCAP FALSE CACHE BOOL "Compile with flycap driver (FLIR cameras, predecessor of Spinnaker)")
 set(USE_V4L FALSE CACHE BOOL "Compile with Video4Linux support (generic webcams)")
 set(USE_SPLITTER FALSE CACHE BOOL "Compile with Camera splitter support (virtual cameras with part of a full image)")
+set(USE_UEYE FALSE CACHE BOOL "Compile with Camera UEYE support (IDS cameras)")
 
 if(USE_DC1394 AND USE_mvIMPACT)
 	message(FATAL_ERROR "DC1394 and mvImpact are not compatible: mvImpact crashes when creating device manager")
@@ -172,6 +173,18 @@ else()
 	message(STATUS "Camera splitter disabled")
 endif()
 
+if( USE_UEYE )
+    if (EXISTS "/usr/include/ueye.h")
+        add_definitions(-D UEYE)
+        set (SHARED_SRCS ${SHARED_SRCS} ${shared_dir}/capture/capture_ueye.cpp)
+        set (SHARED_HEADERS ${SHARED_HEADERS} ${shared_dir}/capture/capture_ueye.h)
+        set (UEYE_LIBS ueye_api)
+        message(STATUS "uEye found => uEye support enabled")
+    else()
+        message(STATUS "uEye NOT found => uEye support disabled")
+    endif()
+endif()
+
 include_directories(${PROJECT_SOURCE_DIR}/src/app)
 include_directories(${PROJECT_SOURCE_DIR}/src/app/gui)
 include_directories(${PROJECT_SOURCE_DIR}/src/app/plugins)
@@ -327,6 +340,7 @@ set (libs ${QT_LIBRARIES}
 	${OpenCV_LIBS}
 	${FLYCAP_LIBS}
 	${SPINNAKER_LIBS}
+	${UEYE_LIBS}
   ${V4L_LIBS}
 )
 target_link_libraries(sslvision ${libs})

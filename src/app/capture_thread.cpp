@@ -108,6 +108,13 @@ CaptureThread::CaptureThread(int cam_id)
   captureSpinnaker = new CaptureSpinnaker(spinnaker, camId);
 #endif
 
+#ifdef UEYE
+  captureModule->addItem("uEye");
+  settings->addChild( (VarType*) (ueye = new VarList("uEye")));
+  captureUeye = new CaptureUeye(ueye, camId);
+#endif
+
+
 #ifdef CAMERA_SPLITTER
   splitter = new VarList("Splitter");
   captureModule->addItem("Splitter");
@@ -166,6 +173,10 @@ CaptureThread::~CaptureThread()
 
 #ifdef SPINNAKER
   delete captureSpinnaker;
+#endif
+
+#ifdef UEYE
+  delete captureUeye;
 #endif
 
 #ifdef CAMERA_SPLITTER
@@ -227,6 +238,11 @@ void CaptureThread::selectCaptureMethod() {
 #ifdef SPINNAKER
   else if(captureModule->getString() == "Spinnaker") {
     new_capture = captureSpinnaker;
+  }
+#endif
+#ifdef UEYE
+  else if(captureModule->getString() == "uEye") {
+    new_capture = captureUeye;
   }
 #endif
 #ifdef CAMERA_SPLITTER
